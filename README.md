@@ -1,449 +1,456 @@
-Yesterday 6:37 PM
-Pasted markdown(2).md
-File
+# AI Financial Close & Reconciliation Platform
 
-create a prompt for my frontend.
-it should have all reconcilation for the months of the year.
-for the current month, it should it should be the active page.
-have all discrepancies.
-it should be dashboard that the finance admin can make use of
-it should also show the financial transcations for that month.
-it should have a bar on the same line that shows if theres a discrepancy in a transation.
-when i click on one trasation it shows the full details.
-it should be vertical and the details horizontal, with the main div haveing an overflow-x-hidden and the parent div of the transaction div have an overflow-x-auto.
-on the frontend show the retriev docuemtns from the graph like my ai-incident-response-system that hshows the retrieved docs, discrepancies, the human approval buttons. each transaction clicked on should have this page.
-shows alll evidences retutned from the frontend.
-based on the recommendation, like if this
-Request discount approval.
+> **Production-oriented AI system for investigating financial discrepancies, collecting evidence, applying accounting policy, and coordinating human-approved resolutions.**
 
-If approved:
-record $500 adjustment.
+This project is designed as a **financial close control room**, not a chatbot.
 
-If not approved:
-request remaining $500 from customer.
-implement tool calling for the last agent and it should.
-color for the project
-Deep Navy + Emerald — My strongest recommendation
+It combines deterministic accounting logic with AI-assisted investigation, hybrid retrieval, graph reasoning, evidence tracking, human approval, controlled accounting actions, verification, and persistent investigation memory.
 
-Feels: Premium + financial + trustworthy + modern
+The central design principle is:
 
-Background: #071A2B
+> **AI investigates and recommends. Deterministic systems validate and execute. Humans approve financial changes.**
 
-Surface: #0D2638
+---
 
-Primary: #19C37D
+## Table of Contents
 
-Secondary: #4ADE80
+- [1. Overview](#1-overview)
+- [2. Problem](#2-problem)
+- [3. Goals](#3-goals)
+- [4. Core Principles](#4-core-principles)
+- [5. System Capabilities](#5-system-capabilities)
+- [6. High-Level Architecture](#6-high-level-architecture)
+- [7. End-to-End Workflow](#7-end-to-end-workflow)
+- [8. Month-End Close Workflow](#8-month-end-close-workflow)
+- [9. Transaction Lifecycle](#9-transaction-lifecycle)
+- [10. AI Agent Architecture](#10-ai-agent-architecture)
+- [11. Reconciliation Architecture](#11-reconciliation-architecture)
+- [12. Investigation & Root Cause Analysis](#12-investigation--root-cause-analysis)
+- [13. RAG Architecture](#13-rag-architecture)
+- [14. Knowledge Graph](#14-knowledge-graph)
+- [15. Evidence Graph](#15-evidence-graph)
+- [16. Document Intelligence](#16-document-intelligence)
+- [17. Human-in-the-Loop](#17-human-in-the-loop)
+- [18. Financial Action & Approval Flows](#18-financial-action--approval-flows)
+- [19. Accounting Provider](#19-accounting-provider)
+- [20. Payment Recovery Flow](#20-payment-recovery-flow)
+- [21. Frontend Architecture](#21-frontend-architecture)
+- [22. Frontend ↔ Backend Synchronization](#22-frontend--backend-synchronization)
+- [23. Data Architecture](#23-data-architecture)
+- [24. PostgreSQL as Source of Truth](#24-postgresql-as-source-of-truth)
+- [25. Pinecone Investigation Memory](#25-pinecone-investigation-memory)
+- [26. Redis](#26-redis)
+- [27. Security](#27-security)
+- [28. Idempotency](#28-idempotency)
+- [29. Failure & Recovery Semantics](#29-failure--recovery-semantics)
+- [30. Accounting Period Safety](#30-accounting-period-safety)
+- [31. Observability](#31-observability)
+- [32. Evaluation](#32-evaluation)
+- [33. Testing Strategy](#33-testing-strategy)
+- [34. Deployment Architecture](#34-deployment-architecture)
+- [35. Environment Variables](#35-environment-variables)
+- [36. External Services](#36-external-services)
+- [37. Technology Stack](#37-technology-stack)
+- [38. Design Tradeoffs](#38-design-tradeoffs)
+- [39. Why This Is Not "Just an LLM App"](#39-why-this-is-not-just-an-llm-app)
+- [40. Example Investigation](#40-example-investigation)
+- [41. Repository Structure](#41-repository-structure)
+- [42. Development Principles](#42-development-principles)
+- [43. Future Extensions](#43-future-extensions)
 
-Text: #F5F7FA
+---
 
-Muted text: #8FA3B8
+# 1. Overview
 
-Border: #1B3A4D
-color across pages. it should use react, next.js.
+The AI Financial Close & Reconciliation Platform is an agentic financial operations system designed to help finance teams investigate discrepancies during reconciliation and month-end close.
 
-Where document intelligence fits
+Instead of requiring an accountant to manually move between:
 
-Financial data isn't clean.
+- invoices
+- payments
+- bank transactions
+- general ledger entries
+- accounting policies
+- receipts
+- approval records
+- customer information
+- previous investigations
 
-You may have:
+the system builds a connected investigation around each discrepancy.
 
-PDF invoices
-scanned receipts
-CSV bank statements
-Excel spreadsheets
-emails
-contracts
-credit notes
-purchase orders
+The platform can:
 
-So you need an ingestion pipeline.
+1. ingest financial records and documents
+2. normalize and validate data
+3. reconcile financial records deterministically
+4. detect discrepancies
+5. investigate related records
+6. retrieve relevant accounting policies and documents
+7. traverse connected entities through a knowledge graph
+8. construct an evidence trail
+9. identify likely root causes
+10. produce a recommended resolution
+11. request human approval
+12. execute only authorized accounting actions
+13. verify the resulting accounting state
+14. request payment when an adjustment is rejected
+15. reconcile subsequent payments
+16. store resolved investigations as precedent memory
+17. update the close dashboard automatically
 
-Something like:
+---
 
-              Documents
+# 2. Problem
+
+Financial reconciliation is fundamentally a **cross-system reasoning problem**.
+
+A discrepancy may require information from several sources:
+
+```text
+Invoice
+   │
+   ├── Customer
+   │
+   ├── Invoice Lines
+   │
+   ├── Credit Note
+   │
+   └── Payment
+          │
+          └── Bank Transaction
                   │
-        ┌─────────┴─────────┐
-        │                   │
-       PDF                 CSV
-        │                   │
-       OCR             Structured parser
-        │                   │
-        └─────────┬─────────┘
-                  ▼
-           Normalization
-                  │
-                  ▼
-          Financial records
-
-For PDFs:
-
-PDF
- ↓
-OCR / document parser
- ↓
-structured fields
- ↓
-validation
- ↓
-database
-
-For CSV:
-
-CSV
- ↓
-schema validation
- ↓
-normalization
- ↓
-database
-
-The important thing is that AI should not be responsible for everything.
-
-A CSV parser shouldn't need an LLM.
-i'm building it as a project.
-so i want to know.
-Root cause
-The $500 discrepancy appears to result from a customer discount reflected in the invoice but not supported by an approved discount record.
-Confidence
-0.91
-
-Evidence
-INV-1001, page 1
-Policy FIN-042
-Ledger JE-9021
-No matching credit note
-
-Recommendation
-Request discount approval.
-
-If approved:
-record $500 adjustment.
-
-If not approved:
-request remaining $500 from customer.
-
-if it is a discount, then show buttons approval, and reject,
-if approved, call tools, to write to create a ledger and then send confirmstion to the user that the discount has benn successfully resgistered.
-update the db with the root cause of the dispcrepancy and solution.
-then if rejected and escalated to the manager usel slack to send an email to the manager and wait for approval. it should approve the following transactions or reject to create a leger that the customer owes us.
-then send cofirmation email to the user to request the remaining money.
-       │
-┌────┴────────────────────────┐
-▼ ▼
-[Approved] [Rejected]
-│ │
-├─ Tool: Ledger Adjustment ├─ Tool: Send Email
-│ │ (Payment Request)
-└─ Tool: Send Email │
-(Confirmation) └─ Tool: Create Task
-(AR Follow-up)
-
-now if the user was discounted then it should show approve and reject and folllow that flow up buttons.
-then for this it shoud use a different endpoint that does this and triggers the langgraph conditional flow again using the status of the transaction so each transcation sould have status. to perform the flow above and then it should the make use of other endpoints and at the end of it sould update the postgres db.
-save a collection in pinecone about the issue and the details of the transaction and then the root cause and the solution.
-if it is not discount then it should show the same buttons like approve and reject. then cals too to create a stance in ledger and then send the user an emaik that he owes and if apprved update the db and then add the root cause solution and the update status and if the user finanly pays and the payment and it is sent to the db, then up. then it should mimich the core functionality of the financial close agent appliation.
-Where document intelligence fits
-Financial data isn't clean.
-You may have:
-
-PDF invoices
-scanned receipts
-CSV bank statements
-Excel spreadsheets
-emails
-contracts
-credit notes
-purchase orders
-
-So you need an ingestion pipeline.
-Something like:
-
-          Documents
-              │
-    ┌─────────┴─────────┐
-    │                   │
-   PDF                 CSV
-    │                   │
-   OCR             Structured parser
-    │                   │
-    └─────────┬─────────┘
-              ▼
-       Normalization
-              │
-              ▼
-      Financial records
-
-For PDFs:
-
-PDF
-↓
-OCR / document parser
-↓
-structured fields
-↓
-validation
-↓
-database
-
-For CSV:
-
-CSV
-↓
-schema validation
-↓
-normalization
-↓
-database
-
-The important thing is that AI should not be responsible for everything.
-A CSV parser shouldn't need an LLM.
-for the vision use qwen 2-78vl
-make sure to make it a prodcution .
-the frontend and backend should sync. it should automate.
-integrate slcak for escalting to manager, use tool calls or mcp servers. then search for free ledger systems my application can use from.
-all the keys you need put them in the env file.
-if a close has been closed show the current month.
-ike we're in septemer, show september month, the transactions that exists, show if there are discrepancies already. when an admin clisks a transaction show the full transactions.
-for toer months like the admin can select months and then view the transactions and then send a post request to signify that the month has been closed.
-then it updates the db. so design a db schema that sould accomplish that.
-then button to reopen the month. then to be able to print the report for each moneht. the report for each month should be genrated by an agent.
-and saved in the db. it should only review month by month..
-
-so the project should be an aid to the finance department. think of missing functinlities and then tell the ai to addd more dcuments and add things in the knowledge base and create transactions for 5 months. and make all documents t o have enough information, from data to customers to accounts to ledgers to knowledge graph and so on and so forth. create realistic companies and transactions their type of software, grades and how they pay and all tha. i want it to be very very very real.
-list all external tools i need to create accounts in. i have the pinecone db creadetial already.
-or use mcp servers.
-
-Yes — I included those concepts in the master prompt, but not with the same level of explicitness and completeness as the list you just gave me.
+                  └── Ledger Entry
+                          │
+                          └── Account
+```
+
+A $500 difference, for example, could represent:
+
+- an approved discount
+- an unapplied payment
+- a bank timing difference
+- a missing credit note
+- a refund
+- a duplicate payment
+- an incorrect ledger entry
+- an unsupported adjustment
+- a customer short-payment
 
-Specifically:
+The system therefore separates:
 
-PostgreSQL as source of truth → included.
-MockAccountingProvider first → included.
-Conditional status flows → included, but I would make the exact state transitions even more explicit.
-Frontend → FastAPI → authorization → LangGraph → privileged tool → included.
-Secrets never exposed to frontend → included.
-Pinecone / Neo4j / Slack / Email / LLM / Qwen / Langfuse / Redis / PostgreSQL → all included.
-External ledger adapters → included.
-Idempotency, audit trail, failure recovery → included.
-
-However, you're right to ask because these are architectural decisions, not minor implementation details. They deserve to be elevated into explicit non-negotiable requirements rather than being scattered throughout the prompt.
-
-I would add this section near the very beginning of the master prompt, immediately after the technology stack, so the coding model sees it before it starts making architectural decisions:
+**Detection → Investigation → Recommendation → Approval → Execution → Verification**
 
-Architecture Non-Negotiables — Add to Master Prompt
-ARCHITECTURE NON-NEGOTIABLES
-
-These rules are mandatory.
+rather than asking an LLM to perform the entire process.
 
-Do not violate them for convenience.
+---
 
-1. POSTGRESQL IS THE APPLICATION SOURCE OF TRUTH
+# 3. Goals
 
-PostgreSQL is the authoritative source of truth for:
+### Primary goals
 
-financial transactions
-invoices
-payments
-bank transactions
-ledger entries
-journal entries
-accounts
-customers
-discrepancies
-investigations
-recommendations
-approvals
-adjustments
-payment requests
-transaction statuses
-accounting periods
-monthly reports
-audit events
+- Automate repetitive reconciliation investigation.
+- Reduce the amount of manual investigation required per discrepancy.
+- Preserve a complete evidence trail.
+- Make AI recommendations explainable.
+- Keep financial mutations behind deterministic tools and authorization.
+- Support human approval and manager escalation.
+- Recover interrupted workflows.
+- Maintain an auditable state machine.
+- Provide a month-by-month financial close dashboard.
+- Learn from resolved investigations without allowing memory to become the source of truth.
 
-Pinecone is NOT the source of truth.
+### Non-goals
 
-Neo4j is NOT the source of truth.
+The system is not intended to:
 
-Redis is NOT the source of truth.
+- autonomously alter financial records without approval
+- replace accounting controls
+- let an LLM perform authoritative accounting calculations
+- allow frontend code to call privileged financial systems
+- silently modify closed accounting periods
+- treat vector search results as authoritative financial data
 
-The frontend is NOT the source of truth.
+---
 
-External accounting software is NOT the source of truth for application state.
+# 4. Core Principles
+
+## 4.1 PostgreSQL is authoritative
+
+PostgreSQL is the source of truth for application and financial state.
+
+It owns:
+
+- transactions
+- invoices
+- payments
+- bank transactions
+- customers
+- accounts
+- ledger entries
+- journal entries
+- discrepancies
+- investigations
+- recommendations
+- approvals
+- adjustments
+- payment requests
+- statuses
+- accounting periods
+- reports
+- audit events
 
-All important financial state must ultimately be persisted in PostgreSQL.
+Pinecone, Neo4j, Redis, the frontend, and external accounting providers are **not authoritative**.
+
+---
 
-2. ACCOUNTING PROVIDER ABSTRACTION
+## 4.2 AI investigates; deterministic code validates
+
+LLMs are useful for:
 
-Do not tightly couple the application to a single accounting/ledger provider.
+- hypothesis generation
+- evidence synthesis
+- document interpretation
+- policy interpretation
+- root-cause reasoning
+- explanation generation
 
-Create:
+They should not be trusted as the final authority for:
 
-class AccountingProvider(Protocol):
-    async def create_journal_entry(...):
-        ...
+- financial arithmetic
+- ledger balances
+- journal validation
+- period status
+- authorization
+- idempotency
+- accounting mutations
 
-    async def get_journal_entry(...):
-        ...
+---
 
-    async def get_account(...):
-        ...
+## 4.3 Humans control financial modification
 
-    async def get_account_balance(...):
-        ...
+The system can recommend:
 
-    async def create_receivable(...):
-        ...
-
-    async def record_payment(...):
-        ...
-
-    async def verify_transaction(...):
-        ...
-
-Implement:
-
-AccountingProvider
-│
-├── MockAccountingProvider
-├── ERPNextAccountingProvider
-├── AkauntingAccountingProvider
-└── SQLLedgerAccountingProvider
-
-The first working implementation MUST be:
+> "Record a $500 discount adjustment."
 
-MockAccountingProvider
-
-The entire application must work end-to-end with the mock provider.
-
-The mock provider must behave like a real accounting system:
-
-validate journal entries
-maintain account balances
-create journal entries
-return external IDs
-reject invalid operations
-support idempotency
-return failures when configured
-support transaction lookup
-support verification
-
-The mock provider must NOT simply return:
-
-{
-  "success": true
-}
-
-It should maintain an actual mock ledger state.
-
-External accounting providers are adapters.
-
-They are not required for the core application to function.
-
-3. FRONTEND → BACKEND → LANGGRAPH → TOOL ARCHITECTURE
-
-The frontend MUST NOT directly call privileged tools.
-
-Never allow:
-
-Browser
-   ↓
-Slack API
-
-or:
-
-Browser
-   ↓
-Ledger API
-
-or:
-
-Browser
-   ↓
-Pinecone
-
-or:
-
-Browser
-   ↓
-PostgreSQL
-
-The architecture must be:
-
-React / Next.js
-      │
-      │ authenticated HTTPS request
-      ▼
-FastAPI API
-      │
-      ├── authentication
-      ├── authorization
-      ├── validation
-      ├── state validation
-      ├── idempotency validation
-      │
-      ▼
-LangGraph
-      │
-      ├── investigate
-      ├── evaluate
-      ├── conditional routing
-      └── execute approved action
-      │
-      ▼
-Controlled Backend Tool
-      │
-      ├── Ledger
-      ├── Slack
-      ├── Email
-      ├── Payment Request
-      └── Accounting Provider
-      │
-      ▼
-PostgreSQL
-
-The browser should only communicate with the application's API.
-
-All privileged credentials remain on the backend.
-
-4. HUMAN DECISION MUST CONTROL THE FINANCIAL ACTION
-
-The AI can:
-
-investigate
-retrieve evidence
-identify discrepancies
-generate hypotheses
-identify likely root causes
-interpret policies
-calculate confidence
-recommend an action
-
-The AI must NOT independently execute financial modifications.
-
-Required flow:
-
-AI Investigation
-      ↓
-Root Cause
-      ↓
-Recommendation
-      ↓
-Human Approval
-      ↓
-Backend Authorization
-      ↓
-Controlled Tool Call
-      ↓
-Ledger Operation
-      ↓
-Verification
-5. EXPLICIT TRANSACTION STATE MACHINE
-
-Every transaction must have a persisted status.
-
-At minimum:
+It cannot directly decide that the adjustment should happen.
 
+The workflow pauses for approval.
+
+---
+
+## 4.4 Every mutation is auditable
+
+Financial mutations must have:
+
+- actor
+- timestamp
+- transaction ID
+- investigation ID
+- approval ID where applicable
+- action type
+- previous state
+- resulting state
+- external accounting ID
+- workflow version
+- reason
+
+---
+
+# 5. System Capabilities
+
+| Capability | Implementation |
+|---|---|
+| Financial ingestion | CSV/API/document ingestion |
+| Document extraction | Qwen2.5-VL-72B |
+| Reconciliation | Python + PostgreSQL |
+| Semantic retrieval | BGE-M3 + Pinecone |
+| Keyword retrieval | BM25 |
+| Reranking | BGE reranker |
+| Relationship reasoning | Neo4j |
+| Investigation | LangGraph + Qwen3 |
+| Policy analysis | Policy RAG + Qwen3 |
+| Human approval | FastAPI + LangGraph interrupt |
+| Manager escalation | Slack |
+| Customer notification | Email provider |
+| Ledger mutation | AccountingProvider |
+| Investigation memory | Pinecone |
+| Workflow state | PostgreSQL + LangGraph checkpointing |
+| Queue/background execution | Redis |
+| Observability | Langfuse + metrics |
+| Frontend | Next.js + React |
+
+---
+
+# 6. High-Level Architecture
+
+```mermaid
+flowchart TB
+    UI[Next.js Finance Admin UI]
+
+    API[FastAPI API]
+    AUTH[Authentication & Authorization]
+    DB[(PostgreSQL<br/>Source of Truth)]
+
+    LG[LangGraph<br/>Investigation Workflow]
+
+    SQL[SQL / Deterministic Reconciliation]
+    RAG[Hybrid RAG]
+    GRAPH[Neo4j<br/>Knowledge Graph]
+    MEMORY[Pinecone<br/>Resolved Case Memory]
+
+    LLM[Qwen3 Models]
+    VISION[Qwen2.5-VL-72B]
+
+    APPROVAL[Human Approval]
+    SLACK[Slack Manager Escalation]
+    EMAIL[Email Provider]
+
+    ACCOUNTING[AccountingProvider]
+    MOCK[Mock Accounting Provider]
+    ERP[Optional ERP Adapter]
+
+    REDIS[(Redis)]
+
+    UI --> API
+    API --> AUTH
+    AUTH --> DB
+    API --> LG
+
+    LG --> SQL
+    LG --> RAG
+    LG --> GRAPH
+    LG --> MEMORY
+    LG --> LLM
+    LG --> VISION
+
+    LG --> APPROVAL
+
+    APPROVAL --> ACCOUNTING
+    APPROVAL --> SLACK
+    APPROVAL --> EMAIL
+
+    ACCOUNTING --> MOCK
+    ACCOUNTING --> ERP
+
+    API --> DB
+    LG --> DB
+    REDIS --> LG
+```
+
+---
+
+# 7. End-to-End Workflow
+
+```mermaid
+flowchart TD
+    A[Financial Data / Documents] --> B[Ingestion]
+    B --> C[Validation & Normalization]
+    C --> D[(PostgreSQL)]
+
+    D --> E[Deterministic Reconciliation]
+
+    E -->|No discrepancy| F[Reconciled]
+    E -->|Discrepancy| G[Investigation Created]
+
+    G --> H[Retrieve Related Records]
+    H --> I[Hybrid Retrieval]
+    H --> J[Knowledge Graph]
+    H --> K[Previous Resolved Cases]
+
+    I --> L[Evidence Collection]
+    J --> L
+    K --> L
+
+    L --> M[Root Cause Analysis]
+    M --> N[Policy Validation]
+    N --> O[Recommendation]
+
+    O --> P{Human Approval}
+
+    P -->|Approve| Q[Controlled Accounting Action]
+    P -->|Reject| R[Manager Escalation]
+
+    Q --> S[Verify]
+    S --> T{Reconciled?}
+
+    T -->|Yes| U[Resolved]
+    T -->|No| M
+
+    R --> V{Manager Decision}
+
+    V -->|Approve| Q
+    V -->|Reject| W[Create Receivable]
+    W --> X[Payment Request]
+    X --> Y[Payment Received]
+    Y --> Z[Reconcile Payment]
+    Z --> T
+
+    U --> AA[Persist Investigation]
+    AA --> AB[Pinecone Memory]
+```
+
+---
+
+# 8. Month-End Close Workflow
+
+The frontend exposes all accounting periods.
+
+Example:
+
+```text
+January   February   March   April   May   June   July   August   September   October   November   December
+                                                                ▲
+                                                            Current Month
+```
+
+Each period has:
+
+- status
+- transaction count
+- reconciled count
+- discrepancy count
+- open investigations
+- approved adjustments
+- unresolved amount
+- close report
+
+### Close flow
+
+```mermaid
+flowchart TD
+    A[Select Accounting Month] --> B[Load Period]
+    B --> C[Run Reconciliation]
+
+    C --> D{Discrepancies?}
+
+    D -->|Yes| E[Create Investigations]
+    E --> F[Resolve / Approve / Escalate]
+    F --> C
+
+    D -->|No| G[Generate Close Report]
+    G --> H[Human Review]
+    H --> I{Close Approved?}
+
+    I -->|No| C
+    I -->|Yes| J[POST /close]
+    J --> K[Period CLOSED]
+```
+
+A closed period cannot receive ordinary financial modifications.
+
+Reopening requires:
+
+- authorization
+- reason
+- audit event
+
+---
+
+# 9. Transaction Lifecycle
+
+The backend owns transaction status.
+
+```text
 RECONCILED
 DISCREPANCY_DETECTED
 INVESTIGATING
@@ -459,433 +466,1346 @@ PAYMENT_PENDING
 PAYMENT_RECEIVED
 RESOLVED
 FAILED
+```
 
-Implement valid state transitions.
+### State machine
 
-Do not allow the frontend to arbitrarily set a transaction status.
+```mermaid
+stateDiagram-v2
+    [*] --> RECONCILED
 
-The backend controls state transitions.
+    RECONCILED --> DISCREPANCY_DETECTED
+    DISCREPANCY_DETECTED --> INVESTIGATING
+    INVESTIGATING --> AWAITING_HUMAN_APPROVAL
 
-6. APPROVED FLOW
+    AWAITING_HUMAN_APPROVAL --> APPROVED
+    AWAITING_HUMAN_APPROVAL --> REJECTED
 
-For an approved financial recommendation:
+    APPROVED --> ADJUSTMENT_PENDING
+    ADJUSTMENT_PENDING --> ADJUSTED
+    ADJUSTED --> RESOLVED
 
+    REJECTED --> ESCALATED
+    ESCALATED --> AWAITING_MANAGER_APPROVAL
+
+    AWAITING_MANAGER_APPROVAL --> APPROVED
+    AWAITING_MANAGER_APPROVAL --> REJECTED
+
+    REJECTED --> PAYMENT_REQUESTED
+    PAYMENT_REQUESTED --> PAYMENT_PENDING
+    PAYMENT_PENDING --> PAYMENT_RECEIVED
+    PAYMENT_RECEIVED --> RESOLVED
+
+    INVESTIGATING --> FAILED
+    ADJUSTMENT_PENDING --> FAILED
+```
+
+The frontend cannot arbitrarily set these statuses.
+
+---
+
+# 10. AI Agent Architecture
+
+The system uses specialized agents/nodes rather than one general-purpose agent.
+
+| Agent | Model | Responsibility |
+|---|---|---|
+| Document Intelligence | Qwen2.5-VL-72B | Extract structured information from financial documents |
+| Reconciliation | Qwen3-8B | Interpret deterministic reconciliation results |
+| Investigation | Qwen3-14B | Investigate discrepancy and connect evidence |
+| Policy | Qwen3-8B | Retrieve and apply accounting policy |
+| Root Cause | Qwen3-14B | Evaluate hypotheses and determine likely cause |
+| Explanation | Qwen3-8B | Produce clear investigation/close explanations |
+| Verification | Qwen3-8B | Interpret post-action verification results |
+| Entity Resolution | BGE-M3 + deterministic matching | Resolve entities without LLM-first merging |
+
+The model assignment is intentionally asymmetric.
+
+Complex reasoning receives more model capacity.
+
+Routine structured tasks use smaller models.
+
+---
+
+# 11. Reconciliation Architecture
+
+Reconciliation is primarily deterministic.
+
+Example:
+
+```text
+Invoice amount       = $12,400
+Payment received     = $11,900
+Ledger amount        = $12,400
+Expected difference  = $0
+Actual difference    = $500
+```
+
+The reconciliation engine calculates:
+
+```python
+difference = expected_amount - actual_amount
+```
+
+The LLM does not decide the arithmetic.
+
+It receives the structured result and investigates why the difference exists.
+
+### Reconciliation pipeline
+
+```mermaid
+flowchart LR
+    A[Invoice] --> D[Normalization]
+    B[Payment] --> D
+    C[Ledger] --> D
+
+    D --> E[Deterministic Matching]
+    E --> F[Amount Comparison]
+    F --> G[Status]
+
+    G -->|Match| H[RECONCILED]
+    G -->|Mismatch| I[DISCREPANCY_DETECTED]
+```
+
+---
+
+# 12. Investigation & Root Cause Analysis
+
+The investigation agent builds hypotheses.
+
+Example:
+
+```text
+Hypothesis 1:
+Customer made an unauthorized $500 short payment.
+
+Hypothesis 2:
+A $500 discount was approved but not recorded.
+
+Hypothesis 3:
+A credit note exists but was not applied.
+
+Hypothesis 4:
+Bank transaction is incomplete or misclassified.
+```
+
+Each hypothesis is evaluated against evidence.
+
+The investigation should not simply output:
+
+> "The discount is the cause."
+
+Instead it should produce:
+
+```text
+Hypothesis
+Evidence
+Contradicting Evidence
+Policy
+Confidence
+Conclusion
+```
+
+### Investigation loop
+
+```mermaid
+flowchart TD
+    A[Discrepancy] --> B[Generate Hypotheses]
+    B --> C[Retrieve Evidence]
+
+    C --> D[Evaluate Evidence]
+    D --> E{Sufficient Evidence?}
+
+    E -->|No| F[Search More Sources]
+    F --> C
+
+    E -->|Yes| G[Check Contradictions]
+    G --> H{Contradiction?}
+
+    H -->|Yes| I[Re-evaluate Hypotheses]
+    I --> C
+
+    H -->|No| J[Root Cause]
+    J --> K[Policy Validation]
+    K --> L[Recommendation]
+```
+
+This loop is bounded by a maximum number of iterations/retries.
+
+---
+
+# 13. RAG Architecture
+
+The system uses different retrieval strategies for different data.
+
+## Structured data
+
+Use SQL.
+
+```text
+"What was invoice INV-1042?"
+
+→ PostgreSQL
+```
+
+## Exact identifiers
+
+Use BM25.
+
+```text
+"INV-1042"
+"PAY-90017"
+"FIN-042"
+```
+
+## Semantic policy/document questions
+
+Use vector retrieval.
+
+## Combined evidence
+
+Use hybrid retrieval:
+
+```text
+BM25
+  +
+Vector Search
+  ↓
+Reciprocal Rank Fusion
+  ↓
+Cross Encoder Reranking
+  ↓
+Top Evidence
+```
+
+### Retrieval architecture
+
+```mermaid
+flowchart TD
+    Q[Investigation Query]
+
+    Q --> BM25[BM25]
+    Q --> VECTOR[Vector Search<br/>BGE-M3]
+    Q --> SQL[PostgreSQL]
+    Q --> GRAPH[Neo4j]
+
+    BM25 --> RRF[Reciprocal Rank Fusion]
+    VECTOR --> RRF
+
+    RRF --> RERANK[BGE Reranker]
+    RERANK --> EVIDENCE[Evidence Set]
+
+    SQL --> EVIDENCE
+    GRAPH --> EVIDENCE
+
+    EVIDENCE --> LLM[Investigation Agent]
+```
+
+---
+
+# 14. Knowledge Graph
+
+Neo4j represents stable financial relationships.
+
+Example:
+
+```text
+Customer
+   │
+   └── OWNS → Invoice
+                 │
+                 ├── HAS_LINE → InvoiceLine
+                 ├── PAID_BY → Payment
+                 └── RECORDED_AS → LedgerEntry
+                                      │
+                                      └── POSTED_TO → Account
+```
+
+Additional relationships include:
+
+```text
+Payment → MATCHED_TO → BankTransaction
+Invoice → HAS_CREDIT_NOTE → CreditNote
+Invoice → HAS_REFUND → Refund
+Transaction → INVOLVES → Customer
+Discrepancy → INVOLVES → Invoice
+Investigation → INVESTIGATES → Discrepancy
+Investigation → USES_EVIDENCE → Evidence
+Action → REQUIRES_APPROVAL → Approval
+Approval → APPROVES → Action
+```
+
+### Graph retrieval
+
+Graph traversal is useful when the question requires multiple relationships.
+
+Example:
+
+> "Show everything that could explain this customer's short payment."
+
+The graph can connect:
+
+```text
+Customer
+ → Invoice
+ → Credit Note
+ → Payment
+ → Bank Transaction
+ → Ledger Entry
+ → Account
+ → Policy
+ → Previous Investigation
+```
+
+---
+
+# 15. Evidence Graph
+
+The knowledge graph describes the financial universe.
+
+The **evidence graph** describes the current investigation.
+
+These are different concepts.
+
+### Knowledge Graph
+
+Stable:
+
+```text
+Invoice INV-1042
+    └── belongs to Customer C-102
+```
+
+### Evidence Graph
+
+Investigation-specific:
+
+```text
+Discrepancy D-88
+    │
+    ├── supported by → Invoice INV-1042
+    ├── supported by → Payment PAY-901
+    ├── supported by → Policy FIN-042
+    ├── contradicted by → Approval AP-17
+    └── supports → "Unrecorded discount"
+```
+
+The evidence graph helps preserve **why** the system reached a conclusion.
+
+---
+
+# 16. Document Intelligence
+
+Documents can include:
+
+- invoices
+- receipts
+- bank statements
+- credit notes
+- purchase orders
+- refund documents
+- approval documents
+- journal support
+
+The pipeline is:
+
+```mermaid
+flowchart LR
+    A[PDF / Image] --> B[Document Parser / OCR]
+    B --> C[Qwen2.5-VL-72B]
+    C --> D[Structured Fields]
+    D --> E[Schema Validation]
+    E --> F[Normalization]
+    F --> G[(PostgreSQL)]
+```
+
+CSV bank statements should not require an LLM.
+
+They should use:
+
+```text
+CSV
+→ Schema Validation
+→ Type Validation
+→ Normalization
+→ Duplicate Detection
+→ PostgreSQL
+```
+
+AI is used where interpretation is genuinely useful.
+
+---
+
+# 17. Human-in-the-Loop
+
+Human approval is a hard boundary.
+
+When the investigation reaches:
+
+```text
 AWAITING_HUMAN_APPROVAL
-          ↓
-APPROVED
-          ↓
-ADJUSTMENT_PENDING
-          ↓
-validate policy
-          ↓
-validate authorization
-          ↓
-validate accounting period
-          ↓
-validate journal entry
-          ↓
-AccountingProvider.create_journal_entry()
-          ↓
-ADJUSTED
-          ↓
-verify_reconciliation()
-          ↓
-RESOLVED
+```
 
-After successful execution:
+the LangGraph workflow pauses.
 
-update PostgreSQL
-save journal entry
-save external provider ID
-save audit event
-update investigation
-save root cause
-save final solution
-re-run reconciliation
-verify difference
-save resolved investigation to Pinecone
-send confirmation email
-update frontend state
-7. REJECTED FLOW
+The UI displays:
 
-If the Finance Admin rejects the AI recommendation:
+- discrepancy
+- transaction details
+- evidence
+- retrieved documents
+- policies
+- root cause
+- recommendation
+- confidence
+- proposed accounting action
+- expected financial effect
 
-AWAITING_HUMAN_APPROVAL
-          ↓
-REJECTED
-          ↓
-ESCALATED
-          ↓
-AWAITING_MANAGER_APPROVAL
+The administrator can approve or reject.
 
-The backend should:
+### Approval architecture
 
-persist rejection
-store rejection reason
-create manager escalation
-send Slack notification
-create manager approval request
-pause/wait for manager decision
+```mermaid
+sequenceDiagram
+    participant UI as Next.js
+    participant API as FastAPI
+    participant LG as LangGraph
+    participant DB as PostgreSQL
+    participant ACC as Accounting Provider
 
-The LangGraph workflow must support this interruption and later resume.
+    UI->>API: POST /investigations/{id}/decision
+    API->>API: Authenticate & Authorize
+    API->>DB: Validate State + Idempotency
+    API->>LG: Resume Workflow
 
-8. MANAGER APPROVAL FLOW
+    alt Approved
+        LG->>DB: ADJUSTMENT_PENDING
+        LG->>ACC: Create Journal Entry
+        ACC-->>LG: External Journal ID
+        LG->>DB: ADJUSTED
+        LG->>ACC: Verify
+        LG->>DB: RESOLVED
+    else Rejected
+        LG->>DB: REJECTED
+        LG->>DB: ESCALATED
+    end
 
-Manager approves:
+    API-->>UI: Decision Accepted
+```
 
-AWAITING_MANAGER_APPROVAL
-          ↓
-APPROVED
-          ↓
-ADJUSTMENT_PENDING
-          ↓
-create ledger operation
-          ↓
-verify
-          ↓
-RESOLVED
+---
 
-Manager rejects:
+# 18. Financial Action & Approval Flows
 
-AWAITING_MANAGER_APPROVAL
-          ↓
-REJECTED
-          ↓
-PAYMENT_REQUESTED
-          ↓
-send customer payment request
-          ↓
+## Approved adjustment
+
+```mermaid
+flowchart TD
+    A[AWAITING_HUMAN_APPROVAL]
+    A --> B[Human Approves]
+    B --> C[APPROVED]
+    C --> D[ADJUSTMENT_PENDING]
+
+    D --> E[Validate Policy]
+    E --> F[Validate Authorization]
+    F --> G[Validate Period]
+    G --> H[Validate Journal Entry]
+
+    H --> I[AccountingProvider.create_journal_entry]
+    I --> J[ADJUSTED]
+
+    J --> K[Verify Ledger]
+    K --> L[Re-run Reconciliation]
+
+    L --> M{Difference = 0?}
+    M -->|Yes| N[RESOLVED]
+    M -->|No| O[Investigate Again]
+```
+
+---
+
+## Rejected adjustment
+
+```mermaid
+flowchart TD
+    A[AWAITING_HUMAN_APPROVAL]
+    A --> B[Reject]
+    B --> C[Persist Rejection Reason]
+    C --> D[ESCALATED]
+    D --> E[Slack Manager Escalation]
+    E --> F[AWAITING_MANAGER_APPROVAL]
+
+    F --> G{Manager Decision}
+
+    G -->|Approve| H[Accounting Adjustment]
+    H --> I[Verify]
+    I --> J[RESOLVED]
+
+    G -->|Reject| K[Create Receivable]
+    K --> L[PAYMENT_REQUESTED]
+    L --> M[Customer Email]
+    M --> N[PAYMENT_PENDING]
+```
+
+Slack never directly calls the accounting system.
+
+Slack actions route back through the authenticated backend.
+
+---
+
+# 19. Accounting Provider
+
+The system uses an abstraction:
+
+```python
+class AccountingProvider:
+    def create_journal_entry(...):
+        ...
+
+    def get_journal_entry(...):
+        ...
+
+    def get_account_balance(...):
+        ...
+
+    def verify_transaction(...):
+        ...
+
+    def create_receivable(...):
+        ...
+```
+
+The first implementation is:
+
+```text
+MockAccountingProvider
+```
+
+The mock provider must maintain actual ledger state.
+
+It should support:
+
+- accounts
+- balances
+- journal entries
+- external IDs
+- validation
+- idempotency
+- failure simulation
+- lookups
+- verification
+
+It should not simply return:
+
+```json
+{"success": true}
+```
+
+Optional adapters can later target external accounting systems.
+
+---
+
+# 20. Payment Recovery Flow
+
+Suppose a $500 discount is rejected.
+
+The system does not mark the investigation resolved.
+
+Instead:
+
+```text
+Rejected discount
+       ↓
+Create outstanding receivable
+       ↓
+Request $500 from customer
+       ↓
 PAYMENT_PENDING
-
-When the customer eventually pays:
-
-PAYMENT_PENDING
        ↓
-payment received
+Payment arrives
        ↓
-payment ingestion
+Validate + normalize
        ↓
-PostgreSQL
+Persist to PostgreSQL
        ↓
-reconciliation
+Match payment
        ↓
-difference = $0
-       ↓
-PAYMENT_RECEIVED
+Reconcile
        ↓
 RESOLVED
+```
 
-The system must automatically detect the incoming payment when it enters the application's financial data.
+### Payment loop
 
-9. DISCOUNT EXAMPLE
+```mermaid
+flowchart TD
+    A[Outstanding Receivable] --> B[Payment Request]
+    B --> C[Customer Notification]
+    C --> D[PAYMENT_PENDING]
 
-Example:
+    D --> E[Payment Ingested]
+    E --> F[Validate]
+    F --> G[Normalize]
+    G --> H[(PostgreSQL)]
 
-Invoice:
+    H --> I[Match Payment]
+    I --> J[Reconcile]
 
-$12,400
+    J --> K{Fully Reconciled?}
 
-Payment:
+    K -->|No| D
+    K -->|Yes| L[PAYMENT_RECEIVED]
+    L --> M[RESOLVED]
+```
 
-$11,900
+---
 
-Difference:
+# 21. Frontend Architecture
 
-$500
+The frontend is a finance operations console.
 
-Invoice contains:
+It should feel like a **financial control room**, not a generic admin dashboard.
 
-$500 discount
+### Visual system
 
-Policy:
+```text
+Background: #071A2B
+Surface:    #0D2638
+Primary:    #19C37D
+Secondary:  #4ADE80
+Text:       #F5F7FA
+Muted:      #8FA3B8
+Border:     #1B3A4D
+```
 
-FIN-042 requires approval for discounts above the configured threshold.
+### Main screens
 
-No approval exists.
+```text
+Dashboard
+│
+├── Accounting Periods
+│   ├── January
+│   ├── February
+│   ├── ...
+│   └── December
+│
+├── Current Month
+│   ├── Reconciliation Summary
+│   ├── Transaction List
+│   ├── Discrepancy Indicators
+│   ├── Open Investigations
+│   └── Close Status
+│
+├── Transaction Investigation
+│   ├── Transaction Details
+│   ├── Related Records
+│   ├── Retrieved Documents
+│   ├── Evidence
+│   ├── Root Cause
+│   ├── Policy
+│   ├── Recommendation
+│   ├── Approval
+│   └── Audit Trail
+│
+└── Close Report
+    ├── Reconciled Transactions
+    ├── Discrepancies
+    ├── Adjustments
+    ├── Outstanding Receivables
+    └── Final Close Summary
+```
 
-AI:
+---
 
-Root Cause:
-Customer discount without approved discount record.
+## Transaction List
 
-Confidence:
-0.91
+Each transaction displays:
 
-Evidence:
-INV-1001
-FIN-042
-JE-9021
-No matching credit note
-No matching approval
+```text
+Transaction
+Amount
+Customer
+Invoice
+Payment
+Status
+Difference
+Investigation State
+```
 
-Recommendation:
+A visual indicator appears on the same line:
 
-Request discount approval.
+```text
+INV-1042     $12,400     Difference: $500     ███████
+```
 
-If approved:
-record $500 adjustment.
+The transaction row is horizontally scrollable where necessary, while the page itself prevents unwanted horizontal overflow.
 
-If rejected:
-request remaining $500 from customer.
+Clicking a transaction opens the complete investigation.
 
-Frontend shows:
+---
 
-[ Approve Discount ] [ Reject Discount ]
-10. APPROVE DISCOUNT
+## Investigation Page
 
-Frontend:
+The investigation page exposes the complete reasoning context.
 
-POST /api/v1/transactions/{transaction_id}/decision
+```text
+┌──────────────────────────────────────────────┐
+│ Transaction INV-1042                         │
+│ Status: AWAITING_HUMAN_APPROVAL              │
+├──────────────────────────────────────────────┤
+│ Financial Summary                            │
+│ Invoice: $12,400                             │
+│ Payment: $11,900                              │
+│ Difference: $500                              │
+├──────────────────────────────────────────────┤
+│ Root Cause                                   │
+│ Unrecorded discount                          │
+├──────────────────────────────────────────────┤
+│ Evidence                                     │
+│ • Invoice                                    │
+│ • Payment                                    │
+│ • Customer history                            │
+│ • Policy FIN-042                             │
+├──────────────────────────────────────────────┤
+│ Recommendation                               │
+│ Record $500 adjustment                        │
+├──────────────────────────────────────────────┤
+│ [Approve Discount] [Reject Discount]          │
+└──────────────────────────────────────────────┘
+```
 
-Body:
+The UI should show all evidence returned by the backend.
 
+---
+
+# 22. Frontend ↔ Backend Synchronization
+
+The browser never owns authoritative financial state.
+
+```mermaid
+flowchart LR
+    DB[(PostgreSQL)] --> API[FastAPI]
+    API --> RQ[React Query]
+    RQ --> UI[Next.js UI]
+
+    UI -->|Decision| API
+    API --> LG[LangGraph]
+    LG --> DB
+
+    DB --> API
+    API --> RQ
+    RQ --> UI
+```
+
+React Query should manage:
+
+- transactions
+- investigations
+- approvals
+- discrepancies
+- accounting periods
+- close reports
+
+After a decision:
+
+```text
+POST decision
+     ↓
+Invalidate:
+  transaction
+  investigation
+  approval
+  discrepancy
+  dashboard
+  close-period queries
+     ↓
+Refetch
+     ↓
+UI reflects PostgreSQL state
+```
+
+For long-running workflows, use:
+
+- SSE
+- WebSockets
+- or controlled polling
+
+so users do not need to manually refresh.
+
+---
+
+# 23. Data Architecture
+
+Core entities:
+
+```text
+Customer
+Vendor
+Employee
+Department
+BankAccount
+
+Invoice
+InvoiceLine
+Payment
+BankTransaction
+CreditNote
+Refund
+PurchaseOrder
+Expense
+
+Account
+LedgerEntry
+JournalEntry
+
+Policy
+Approval
+Discrepancy
+Investigation
+Evidence
+Recommendation
+Adjustment
+PaymentRequest
+
+AccountingPeriod
+CloseReport
+AuditEvent
+```
+
+### Financial relationship
+
+```mermaid
+erDiagram
+    CUSTOMER ||--o{ INVOICE : owns
+    INVOICE ||--o{ INVOICE_LINE : contains
+    INVOICE ||--o{ PAYMENT : receives
+    PAYMENT ||--o{ BANK_TRANSACTION : matches
+    INVOICE ||--o{ CREDIT_NOTE : has
+    INVOICE ||--o{ REFUND : has
+    INVOICE ||--o{ LEDGER_ENTRY : recorded_as
+    LEDGER_ENTRY }o--|| ACCOUNT : posted_to
+    JOURNAL_ENTRY }o--o{ ACCOUNT : affects
+
+    DISCREPANCY ||--|| INVESTIGATION : investigated_by
+    INVESTIGATION ||--o{ EVIDENCE : uses
+    INVESTIGATION ||--|| RECOMMENDATION : produces
+    RECOMMENDATION ||--o{ APPROVAL : requires
+    APPROVAL ||--o| ADJUSTMENT : authorizes
+
+    CUSTOMER {
+        string customer_id
+        string name
+        string status
+    }
+
+    INVOICE {
+        string invoice_id
+        decimal amount
+        string currency
+        date issue_date
+        string status
+    }
+
+    PAYMENT {
+        string payment_id
+        decimal amount
+        string currency
+        date payment_date
+        string status
+    }
+
+    DISCREPANCY {
+        string discrepancy_id
+        decimal expected_amount
+        decimal actual_amount
+        decimal difference
+        string status
+    }
+```
+
+---
+
+# 24. PostgreSQL as Source of Truth
+
+All important state is persisted in PostgreSQL.
+
+Examples:
+
+```text
+transactions
+invoices
+payments
+bank_transactions
+ledger_entries
+journal_entries
+customers
+accounts
+discrepancies
+investigations
+recommendations
+approvals
+adjustments
+payment_requests
+accounting_periods
+close_reports
+audit_events
+```
+
+The system should always be able to reconstruct:
+
+```text
+What happened?
+Who approved it?
+Why did it happen?
+What evidence supported it?
+What accounting action occurred?
+What was the resulting state?
+Was the discrepancy actually resolved?
+```
+
+---
+
+# 25. Pinecone Investigation Memory
+
+Pinecone stores resolved investigation precedent.
+
+It is not the financial source of truth.
+
+A resolved case can contain:
+
+```json
 {
-  "decision": "approved",
-  "reason": "Discount approved after evidence review."
+  "case_id": "CASE-1042",
+  "transaction_id": "TX-1042",
+  "invoice_id": "INV-1042",
+  "customer_id": "C-102",
+  "period": "2026-09",
+  "discrepancy_type": "SHORT_PAYMENT",
+  "expected_amount": 12400,
+  "actual_amount": 11900,
+  "difference": 500,
+  "root_cause": "UNRECORDED_DISCOUNT",
+  "confidence": 0.94,
+  "evidence_summary": "...",
+  "policy": "FIN-042",
+  "recommendation": "...",
+  "human_decision": "APPROVED",
+  "manager_decision": null,
+  "action_taken": "JOURNAL_ADJUSTMENT",
+  "final_solution": "...",
+  "status": "RESOLVED",
+  "resolved_at": "2026-09-17T10:30:00Z"
 }
+```
 
-FastAPI:
+Future investigations can retrieve similar cases as precedent.
 
-authenticate
-authorize
-verify transaction state
-verify approval permission
-verify policy
-verify amount
-create idempotency key
-resume LangGraph
+They cannot override current database state or policy.
 
-LangGraph:
+---
 
-APPROVED
-   ↓
-validate_discount
-   ↓
-create_ledger_adjustment
-   ↓
-verify_reconciliation
-   ↓
-save_resolution
-   ↓
-send_confirmation_email
-   ↓
-save_pinecone_memory
+# 26. Redis
 
-Accounting tool:
+Redis supports infrastructure such as:
 
-create_ledger_adjustment()
+- background job coordination
+- queueing
+- caching
+- transient workflow data
+- rate limiting where required
+
+Long-running investigation work should not depend on a FastAPI request remaining open.
+
+The browser submits a decision.
+
+The backend validates it.
+
+LangGraph resumes the workflow asynchronously.
+
+---
+
+# 27. Security
+
+Security boundaries:
+
+```mermaid
+flowchart LR
+    BROWSER[Browser]
+    API[FastAPI]
+    AUTH[Auth]
+    WORKFLOW[LangGraph]
+    TOOLS[Privileged Tools]
+    SYSTEMS[Financial / Slack / Email]
+
+    BROWSER --> API
+    API --> AUTH
+    AUTH --> WORKFLOW
+    WORKFLOW --> TOOLS
+    TOOLS --> SYSTEMS
+```
+
+The browser must never directly access:
+
+- PostgreSQL
+- Pinecone
+- Neo4j
+- Slack credentials
+- accounting credentials
+- email credentials
+- LLM provider secrets
+
+All secrets remain server-side.
+
+---
+
+## PII
+
+Financial data can contain sensitive information.
+
+The ingestion pipeline should:
+
+- validate inputs
+- minimize unnecessary exposure
+- protect secrets
+- redact sensitive values where appropriate
+- enforce tenant/customer authorization
+- log security-relevant events
+
+---
+
+# 28. Idempotency
+
+Every financial mutation must be idempotent.
+
+A double-click must not create two journal entries.
+
+An idempotency key can incorporate:
+
+```text
+transaction_id
+approval_id
+action_type
+workflow_version
+```
 
 Example:
 
-Debit:
-Discount Expense     $500
+```text
+TX-1042:APP-91:DISCOUNT_ADJUSTMENT:v3
+```
 
-Credit:
-Accounts Receivable  $500
+Before executing a mutation:
 
-Then verify:
+```text
+Check idempotency record
+       │
+       ├── Already executed → return existing result
+       │
+       └── Not executed → execute
+                         ↓
+                    persist result
+```
 
-Expected:
-$12,400
+---
 
-Payment:
-$11,900
+# 29. Failure & Recovery Semantics
 
-Approved discount:
-$500
-
-Remaining:
-$0
-
-Transaction:
-
-RESOLVED
-11. REJECT DISCOUNT
-
-Frontend:
-
-POST /api/v1/transactions/{transaction_id}/decision
-
-Body:
-
-{
-  "decision": "rejected",
-  "reason": "No sufficient evidence to approve discount."
-}
-
-Backend:
-
-REJECTED
-↓
-ESCALATED
-↓
-send_slack_manager_escalation()
-↓
-AWAITING_MANAGER_APPROVAL
-
-Slack should contain:
-
-customer
-invoice
-amount
-discrepancy
-root cause
-evidence summary
-recommendation
-investigation URL
-
-Where supported, provide:
-
-[Approve]
-[Reject]
-
-buttons.
-
-Slack actions MUST route back to authenticated backend endpoints.
-
-Never execute ledger operations directly from Slack.
-
-12. MANAGER REJECTION
-
-If manager rejects:
-
-The system determines that the customer owes the remaining amount.
+Financial workflows must distinguish different failures.
 
 Example:
 
-Invoice:
-$12,400
+```text
+Ledger succeeds
+Email fails
+```
 
-Payment:
-$11,900
+The accounting action remains successful.
 
-Outstanding:
-$500
+The email should be retried separately.
 
-Call:
+It must not roll back the accounting mutation merely because notification failed.
 
-create_receivable()
+Similarly:
 
-Then:
+```text
+Slack escalation fails
+```
 
-send_payment_request()
+should not erase a persisted rejection.
 
-Update:
+### Recovery model
 
-transaction.status = PAYMENT_REQUESTED
-invoice.outstanding_amount = 500
+```mermaid
+flowchart TD
+    A[Workflow Step] --> B{Success?}
 
-Send customer/user email:
+    B -->|Yes| C[Persist State]
+    B -->|No| D{Retryable?}
 
-Your account has an outstanding balance of $500 associated with invoice INV-1001.
+    D -->|Yes| E[Retry / Queue]
+    E --> A
 
-Please arrange payment of the remaining balance.
+    D -->|No| F[FAILED]
+    F --> G[Human Review / Recovery]
+```
 
-Do not mark the transaction resolved until the outstanding amount has actually been reconciled.
+LangGraph checkpointing allows interrupted investigations to resume from persisted state.
 
-13. PAYMENT ARRIVAL
+---
 
-When a new payment enters the system:
+# 30. Accounting Period Safety
 
-Payment ingestion
-      ↓
-schema validation
-      ↓
-normalization
-      ↓
-PostgreSQL
-      ↓
-matching engine
-      ↓
-find outstanding invoice
-      ↓
-reconcile
+Every financial record belongs to an accounting period.
+
+Operations check:
+
+```text
+Is period OPEN?
+```
 
 If:
 
-outstanding = $500
-payment = $500
+```text
+OPEN → ordinary modification allowed
+CLOSED → ordinary modification blocked
+```
 
-then:
+Reopening requires:
 
-PAYMENT_RECEIVED
-↓
-reconciliation verified
-↓
+- authorized user
+- reason
+- audit event
+
+No workflow may silently modify a closed period.
+
+---
+
+# 31. Observability
+
+The system should provide visibility into:
+
+### Workflow metrics
+
+- investigation duration
+- agent execution time
+- retries
+- failure rate
+- approval latency
+- resolution rate
+
+### Retrieval metrics
+
+- retrieval hit rate
+- reranker performance
+- evidence relevance
+- retrieval latency
+
+### Model metrics
+
+- hallucination rate
+- faithfulness
+- relevancy
+- confidence calibration
+- structured-output validity
+
+### Financial metrics
+
+- discrepancy count
+- discrepancy value
+- unresolved value
+- adjustments
+- payment recovery
+- close completion
+
+Langfuse can trace LLM and LangGraph execution.
+
+Prometheus-compatible metrics can expose infrastructure and application metrics.
+
+---
+
+# 32. Evaluation
+
+A golden dataset should contain known cases:
+
+```text
+Input transaction
+Expected discrepancy
+Expected root cause
+Expected evidence
+Expected policy
+Expected recommendation
+Expected resolution
+```
+
+Example:
+
+```text
+Case: CASE-001
+
+Invoice: $12,400
+Payment: $11,900
+Difference: $500
+
+Expected Root Cause:
+Unrecorded approved discount
+
+Expected Evidence:
+Invoice
+Payment
+Approval
+Policy FIN-042
+
+Expected Action:
+$500 ledger adjustment
+
+Expected Final State:
 RESOLVED
+```
 
-Save:
+Evaluate:
 
-root cause
-original recommendation
-human decisions
-manager decision
-payment request
-payment received
-final solution
-final status
-14. PINECONE RESOLUTION MEMORY
+- discrepancy detection
+- retrieval precision
+- evidence relevance
+- root-cause accuracy
+- policy compliance
+- recommendation correctness
+- hallucination
+- final resolution
+- state transition correctness
 
-When an investigation is resolved, save a structured investigation memory to Pinecone.
+---
 
-The record should contain:
+# 33. Testing Strategy
 
-case_id
-transaction_id
-invoice_id
-customer_id
-period
-discrepancy_type
-expected_amount
-actual_amount
-difference
-root_cause
-root_cause_confidence
-evidence_summary
-policy
-recommendation
-human_decision
-manager_decision
-action_taken
-final_solution
-resolution_status
-resolved_at
+## Unit tests
 
-Pinecone is used for:
+Test:
 
-precedent retrieval
-similar historical cases
-investigation context
-pattern discovery
+- reconciliation calculations
+- journal validation
+- policy rules
+- authorization
+- state transitions
+- idempotency
+- entity normalization
 
-It is NOT authoritative financial state.
+## Integration tests
 
-15. REQUIRED EXTERNAL SERVICES
+Test:
 
-The architecture should support the following:
+- PostgreSQL
+- Redis
+- Pinecone
+- Neo4j
+- AccountingProvider
+- Slack
+- Email
 
-Service	Purpose	Status
-PostgreSQL	Application source of truth	REQUIRED
-Redis	queue/cache/workflow infrastructure	REQUIRED/RECOMMENDED
-Pinecone	resolved-investigation memory	ALREADY AVAILABLE
-Neo4j	knowledge graph / Graph RAG	RECOMMENDED
-Slack	manager escalation	RECOMMENDED
-Email provider	customer/manager notifications	REQUIRED FOR AUTOMATION
-LLM provider	investigation/reasoning	REQUIRED
-Qwen2-VL-72B	vision/document intelligence	REQUIRED FOR VISION PIPELINE
-Langfuse	AI observability	RECOMMENDED
-MockAccountingProvider	development accounting backend	REQUIRED
-ERPNext/Akaunting/SQL-Ledger adapter	real accounting integration	OPTIONAL
-16. SECRET MANAGEMENT
+## Workflow tests
 
-All credentials must be backend environment variables.
+### Auto-resolution
 
-Create:
+```text
+Discrepancy
+→ Investigation
+→ Evidence
+→ Recommendation
+→ Approval
+→ Adjustment
+→ Verification
+→ Resolved
+```
 
-.env.example
+### Human rejection
 
-Include:
+```text
+Approval
+→ Reject
+→ Slack
+→ Manager
+```
 
+### Manager rejection
+
+```text
+Manager Reject
+→ Receivable
+→ Payment Request
+→ Payment Received
+→ Reconcile
+→ Resolved
+```
+
+### Recovery
+
+```text
+Workflow interrupted
+→ Worker restart
+→ Load checkpoint
+→ Resume
+```
+
+### Security
+
+Test:
+
+- unauthorized decisions
+- tenant isolation
+- prompt injection
+- malicious documents
+- PII exposure
+- direct privileged API attempts
+
+---
+
+# 34. Deployment Architecture
+
+```mermaid
+flowchart TB
+    USER[Finance Admin]
+
+    WEB[Next.js]
+    API[FastAPI]
+    WORKER[ARQ / LangGraph Worker]
+
+    PG[(PostgreSQL)]
+    REDIS[(Redis)]
+    PINE[Pinecone]
+    NEO[Neo4j]
+
+    LLM[LLM Inference]
+    ACCOUNTING[Accounting Provider]
+    SLACK[Slack]
+    EMAIL[Email]
+
+    USER --> WEB
+    WEB --> API
+
+    API --> PG
+    API --> REDIS
+
+    REDIS --> WORKER
+    WORKER --> PG
+    WORKER --> PINE
+    WORKER --> NEO
+    WORKER --> LLM
+    WORKER --> ACCOUNTING
+    WORKER --> SLACK
+    WORKER --> EMAIL
+```
+
+The worker should be independently restartable.
+
+API availability should not depend on an investigation finishing within the HTTP request.
+
+---
+
+# 35. Environment Variables
+
+Example `.env.example`:
+
+```env
 DATABASE_URL=
 REDIS_URL=
 
@@ -907,7 +1827,6 @@ EMAIL_FROM=
 
 LLM_PROVIDER=
 LLM_API_KEY=
-
 VISION_MODEL=
 
 ACCOUNTING_PROVIDER=
@@ -919,430 +1838,582 @@ JWT_SECRET=
 LANGFUSE_PUBLIC_KEY=
 LANGFUSE_SECRET_KEY=
 LANGFUSE_HOST=
+```
 
-Never expose these variables through:
+Never expose these as `NEXT_PUBLIC_*` variables.
 
-NEXT_PUBLIC_*
-browser JavaScript
-client components
-frontend bundles
-GitHub
-17. IDEMPOTENCY
+---
 
-Every financial mutation must be idempotent.
+# 36. External Services
 
-For example:
+| Service | Purpose | Required |
+|---|---|---|
+| PostgreSQL | Authoritative application/financial state | Yes |
+| Redis | Queue/cache/workflow infrastructure | Yes |
+| Pinecone | Resolved investigation memory | Yes |
+| Neo4j | Knowledge graph | Recommended |
+| LLM provider | Agent reasoning | Yes |
+| Qwen2.5-VL-72B | Document intelligence | Yes |
+| Slack | Manager escalation | Recommended |
+| Email provider | Notifications/payment requests | Yes |
+| AccountingProvider | Financial mutations | Yes |
+| Langfuse | LLM/workflow observability | Recommended |
+| Prometheus-compatible metrics | Operational monitoring | Recommended |
 
-If the administrator double-clicks:
+---
 
-Approve Discount
+# 37. Technology Stack
 
-the system must NOT create:
+## Backend
 
-JE-1001
-JE-1002
+- Python
+- FastAPI
+- LangGraph
+- LangChain where useful
+- PostgreSQL
+- SQLAlchemy
+- Redis
+- ARQ
+- Pydantic
 
-for the same approval.
+## AI
 
-Create an idempotency key using the relevant:
+- Qwen3-14B
+- Qwen3-8B
+- Qwen2.5-VL-72B
+- BGE-M3
+- BGE reranker
+- BM25
+- hybrid retrieval
+- Graph RAG where appropriate
 
-transaction_id
-approval_id
-action_type
-workflow_version
+## Data
 
-Store it in PostgreSQL.
+- PostgreSQL
+- Pinecone
+- Neo4j
 
-Before executing:
+## Frontend
 
-Does this action already exist?
+- Next.js
+- React
+- TypeScript
+- React Query
+- Tailwind CSS
+- charts/dashboard components
 
-YES → return existing result.
+## Infrastructure
 
-NO → execute.
-18. FAILURE SEMANTICS
+- Docker
+- GitHub
+- CI/CD
+- Redis
+- cloud deployment
 
-Financial operations and notifications are separate.
+## Observability
 
-Example:
+- Langfuse
+- Prometheus-compatible metrics
 
-Ledger succeeds.
+---
 
-Email fails.
+# 38. Design Tradeoffs
 
-The transaction MUST remain:
+## LLM vs deterministic code
 
-ADJUSTED
+### Decision
 
-not:
+Use deterministic code for financial calculations and LLMs for reasoning.
 
-FAILED
+### Why
 
-Record:
+LLMs are probabilistic.
 
-ledger_operation = SUCCESS
-email_operation = FAILED
+Financial arithmetic, balances, authorization, and journal validation require deterministic behavior.
 
-Then retry the email independently.
+### Tradeoff
 
-Similarly:
+The architecture is more complex because logic is distributed between code and AI.
 
-Slack failure must not roll back a successfully persisted financial decision unless the business operation explicitly requires atomic behavior.
+The benefit is significantly stronger control and auditability.
 
-19. FRONTEND STATE SYNCHRONIZATION
+---
 
-The frontend does not own financial state.
+## One large model vs multiple models
 
-Use:
+### Decision
 
-PostgreSQL
-   ↓
-FastAPI
-   ↓
-React Query
-   ↓
-React UI
+Use different models for different workloads.
 
-For long-running workflows use:
+### Why
 
-SSE
-WebSockets
-polling
+Document vision and deep investigation require different capabilities from simple explanation or verification.
 
-After approval/rejection:
+### Tradeoff
 
-invalidate:
+Multiple models increase deployment and operational complexity.
 
-transaction query
-investigation query
-approval query
-discrepancy query
-close-period query
-dashboard query
+The benefit is lower cost and more appropriate model capacity per task.
 
-The UI should automatically update.
+---
 
-No manual page refresh.
+## Vector RAG vs Graph RAG
 
-20. ACCOUNTING PERIOD SAFETY
+### Vector RAG
 
-Every transaction belongs to a close period.
+Good for:
 
-Every accounting operation must validate:
+- policy
+- procedures
+- accounting documents
+- semantic similarity
 
-Is this period OPEN?
+### Graph RAG
 
-If:
+Good for:
 
-CLOSED
+- multi-hop relationships
+- entity connections
+- transaction lineage
+- connected financial records
 
-do not allow ordinary modifications.
+### Decision
 
-If a closed period needs modification:
+Use both where useful.
 
-require:
+Do not force graph retrieval into questions that SQL or vector retrieval can answer more directly.
 
-REOPEN
-+
-authorized user
-+
-reason
-+
-audit event
+---
 
-Then perform the operation.
+## Pinecone vs PostgreSQL
 
-The system must never silently modify a closed period.
+### PostgreSQL
 
-21. FINAL SYSTEM PRINCIPLE
+Authoritative state.
 
-The complete system should behave like this:
+### Pinecone
 
-                 ┌───────────────────────┐
-                 │      Next.js UI       │
-                 └───────────┬───────────┘
+Similarity-based precedent retrieval.
+
+### Decision
+
+Keep them separate.
+
+A vector similarity result should never overwrite accounting state.
+
+---
+
+## Neo4j vs SQL joins
+
+SQL is sufficient for many known relationships.
+
+Neo4j becomes valuable when investigations require:
+
+```text
+Customer
+→ Invoice
+→ Payment
+→ Bank Transaction
+→ Ledger
+→ Account
+→ Policy
+→ Previous Case
+```
+
+The tradeoff is additional infrastructure.
+
+---
+
+## Synchronous vs asynchronous execution
+
+### Synchronous
+
+Simple but unsuitable for long investigations.
+
+### Asynchronous
+
+More operational complexity but supports:
+
+- long-running workflows
+- retries
+- concurrent investigations
+- worker restarts
+- durable execution
+
+### Decision
+
+Use FastAPI for request handling and Redis/ARQ + LangGraph for background workflows.
+
+---
+
+## Human approval vs autonomous execution
+
+Full autonomy could reduce human workload.
+
+However, financial mutations have consequences.
+
+The system therefore keeps a hard approval boundary.
+
+The tradeoff is that some cases still require human interaction.
+
+That is intentional.
+
+---
+
+## Mock accounting provider vs real ERP
+
+### Mock provider first
+
+Advantages:
+
+- deterministic development
+- reproducible tests
+- failure simulation
+- no external accounting risk
+- easier local development
+
+Later, the same interface can support real adapters.
+
+---
+
+## Stateful workflow vs stateless agent
+
+A stateless agent is simpler.
+
+A financial investigation can span:
+
+- multiple searches
+- human decisions
+- manager escalation
+- payment arrival
+- retries
+- worker restarts
+
+Therefore the system uses stateful LangGraph execution with persisted checkpoints.
+
+---
+
+# 39. Why This Is Not "Just an LLM App"
+
+The LLM is only one component.
+
+The system combines:
+
+```text
+                    ┌──────────────────┐
+                    │     AI Models    │
+                    └────────┬─────────┘
+                             │
+    ┌────────────────────────┼────────────────────────┐
+    │                        │                        │
+    ▼                        ▼                        ▼
+Structured Data          Retrieval                 Graph
+    │                        │                        │
+    └────────────────────────┼────────────────────────┘
+                             ▼
+                       Investigation
                              │
                              ▼
-                 ┌───────────────────────┐
-                 │       FastAPI         │
-                 │ Auth / RBAC / API     │
-                 └───────────┬───────────┘
-                             │
-                 ┌───────────▼───────────┐
-                 │      PostgreSQL       │
-                 │   Source of Truth     │
-                 └───────────┬───────────┘
+                         Evidence
                              │
                              ▼
-                      ┌──────────────┐
-                      │   LangGraph  │
-                      └──────┬───────┘
+                        Root Cause
                              │
-          ┌──────────────────┼──────────────────┐
-          ▼                  ▼                  ▼
-       SQL/Data           RAG/Docs          Knowledge
-        Tools             Pinecone           Graph
-          │                  │                  │
-          └──────────────────┼──────────────────┘
                              ▼
-                     Evidence + Root Cause
+                         Policy
                              │
                              ▼
                        Recommendation
                              │
                              ▼
-                      HUMAN APPROVAL
+                      Human Approval
                              │
-                 ┌───────────┴───────────┐
-                 ▼                       ▼
-              APPROVE                 REJECT
-                 │                       │
-                 ▼                       ▼
-          Ledger Tool               Slack
-                 │                       │
-                 ▼                       ▼
-           Verification          Manager Approval
-                 │                       │
-                 ▼                 ┌─────┴─────┐
-              RESOLVED              ▼           ▼
-                                APPROVE       REJECT
-                                   │             │
-                                   ▼             ▼
-                                Ledger       Receivable
-                                   │             │
-                                   │             ▼
-                                   │       Payment Request
-                                   │             │
-                                   │             ▼
-                                   │       Payment Received
-                                   │             │
-                                   └──────┬──────┘
-                                          ▼
-                                     Reconcile
-                                          ▼
-                                      RESOLVED
+                             ▼
+                    Financial Tool Call
+                             │
+                             ▼
+                        Verification
+                             │
+                             ▼
+                       Reconciliation
+```
 
-This architecture is mandatory.
+The important engineering challenge is coordinating all of these systems safely.
 
-The system should demonstrate controlled automation, not uncontrolled autonomous accounting.
+---
 
-So yes: add this section to the prompt. It makes the architecture much harder for another AI to accidentally simplify into "React dashboard + a few API endpoints."
+# 40. Example Investigation
 
-And I especially want you to keep the distinction between these three:
+Consider:
 
-PostgreSQL = truth
-Pinecone = learned precedent/memory
-Neo4j = relationships
+```text
+Invoice: INV-1042
+Customer: Acme Manufacturing
+Invoice amount: $12,400
+Payment: $11,900
+Difference: $500
+```
 
-while:
+Deterministic reconciliation detects:
 
-LangGraph = orchestration/state
+```text
+$12,400 - $11,900 = $500
+```
 
-and:
+The investigation searches:
 
-Tools = controlled actions
+- invoice
+- customer history
+- payment
+- bank transaction
+- credit notes
+- approvals
+- accounting policies
+- previous resolved investigations
 
-That separation is going to make the Financial Close project much stronger technically.
+The system finds evidence indicating a $500 discount.
 
-Today 2:36 PM
-what open source models wouldbe best for the project. list one for each agent.
+Policy `FIN-042` determines whether the discount requires approval.
 
-For your AI Financial Reconciliation & Investigation System, I would not use one model for every agent. The workload is mixed: structured reasoning, document understanding, classification, retrieval, embeddings, reranking, and explanation.
+The agent recommends:
 
-Here’s the stack I’d use.
+> Request discount approval. If approved, record a $500 adjustment. If rejected, request the remaining $500 from the customer.
 
-Agent / Component	Open-source model	Why
-Reconciliation Agent	Qwen3-8B	Strong structured reasoning; good for interpreting deterministic reconciliation results rather than doing the arithmetic itself
-Investigation Agent	Qwen3-14B	More reasoning capacity for connecting discrepancies, transactions, policies, and evidence
-Document Intelligence Agent	Qwen2.5-VL-72B-Instruct	Excellent fit for invoices, receipts, scanned documents, tables, and visual document understanding
-Policy Agent	Qwen3-8B	Good at extracting/applying rules from policy documents when paired with retrieved policy text
-Root Cause Agent	Qwen3-14B	This is where deeper multi-step reasoning is useful: evidence → hypotheses → contradictions → likely cause
-Explanation / Reporting Agent	Qwen3-8B	Produces clear investigation summaries and financial explanations without needing the largest model
-Verification Agent	Qwen3-8B	Can review structured verification results and determine whether the expected post-action state is satisfied
-Entity Resolution	BGE-M3 + deterministic/fuzzy matching	Don't use an LLM as the primary matcher. Embeddings + normalized identifiers + deterministic rules are safer
-Embeddings	BAAI/bge-m3	Strong multilingual/general-purpose embedding model; works well for hybrid retrieval
-Reranker	BAAI/bge-reranker-v2-m3	Useful after BM25 + vector retrieval to rerank evidence
-Prompt/Security Guard	Qwen3Guard-Gen-8B	Appropriate for checking potentially unsafe or adversarial content before it reaches sensitive agent workflows
-The important part: don't make the LLM do accounting
+The admin sees the evidence and chooses:
 
-I'd structure the agents like this:
+```text
+[Approve Discount] [Reject Discount]
+```
 
-                         ┌─────────────────────┐
-                         │ Qwen2.5-VL-72B      │
-                         │ Document Intelligence│
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                            Structured Data
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │ Deterministic SQL   │
-                         │ Reconciliation      │
-                         └──────────┬──────────┘
-                                    │
-                         discrepancy detected
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │ Qwen3-14B           │
-                         │ Investigation        │
-                         └──────────┬──────────┘
-                                    │
-                    ┌───────────────┼───────────────┐
-                    ▼               ▼               ▼
-               SQL / Graph      Hybrid RAG      Pinecone
-                    │               │               │
-                    └───────────────┼───────────────┘
-                                    ▼
-                         ┌─────────────────────┐
-                         │ Qwen3-14B           │
-                         │ Root Cause          │
-                         └──────────┬──────────┘
-                                    ▼
-                         ┌─────────────────────┐
-                         │ Qwen3-8B            │
-                         │ Policy              │
-                         └──────────┬──────────┘
-                                    ▼
-                         Recommendation
-                                    │
-                                    ▼
-                         HUMAN APPROVAL
-                                    │
-                         ┌──────────┴──────────┐
-                         ▼                     ▼
-                    Approved               Rejected
-                         │                     │
-                         ▼                     ▼
-                  Accounting Tool          Manager
-                         │                  Approval
-                         ▼                     │
-                    Verify ◄──────────────────┘
-                         │
-                         ▼
-                    Qwen3-8B
-                    Explanation
-Why Qwen3 for most of the agents?
+### If approved
 
-For this project, Qwen3 is particularly attractive because you don't need to build the architecture around a proprietary API. You can run different sizes according to task complexity.
+```text
+Approve
+→ Validate
+→ Create journal entry
+→ Verify ledger
+→ Reconcile
+→ Difference = $0
+→ RESOLVED
+→ Store investigation memory
+```
 
-I'd specifically use:
+### If rejected
 
-Qwen3-14B
+```text
+Reject
+→ Slack manager escalation
+→ Manager approves
+→ Ledger adjustment
+→ Verify
+→ RESOLVED
+```
 
-Investigation
-Root-cause analysis
-Complex evidence synthesis
+Or:
 
-Qwen3-8B
+```text
+Manager rejects
+→ Create receivable
+→ Request $500
+→ Payment arrives
+→ Reconcile
+→ RESOLVED
+```
 
-Reconciliation interpretation
-Policy application
-Explanation/reporting
-Verification
-General orchestration/tool selection
+---
 
-And keep Qwen2.5-VL-72B-Instruct specifically for your document/vision workload, as you originally planned.
+# 41. Repository Structure
 
-One architectural change I'd strongly recommend
+A suggested structure:
 
-Don't actually think of these as seven independent LLMs.
+```text
+financial-close/
+│
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   ├── auth/
+│   │   ├── agents/
+│   │   ├── accounting/
+│   │   ├── reconciliation/
+│   │   ├── investigation/
+│   │   ├── retrieval/
+│   │   ├── graph/
+│   │   ├── ingestion/
+│   │   ├── notifications/
+│   │   ├── workflows/
+│   │   ├── models/
+│   │   ├── schemas/
+│   │   ├── services/
+│   │   └── main.py
+│   │
+│   ├── tests/
+│   ├── alembic/
+│   └── requirements.txt
+│
+├── frontend/
+│   ├── app/
+│   │   ├── dashboard/
+│   │   ├── transactions/
+│   │   ├── investigations/
+│   │   ├── approvals/
+│   │   └── reports/
+│   │
+│   ├── components/
+│   ├── hooks/
+│   ├── lib/
+│   └── types/
+│
+├── knowledge/
+│   ├── accounting/
+│   ├── policies/
+│   ├── procedures/
+│   ├── investigation/
+│   ├── rag/
+│   └── graph/
+│
+├── documents/
+│   ├── invoices/
+│   ├── bank_statements/
+│   ├── receipts/
+│   ├── credit_notes/
+│   └── approvals/
+│
+├── data/
+│   ├── customers/
+│   ├── invoices/
+│   ├── payments/
+│   ├── bank_transactions/
+│   └── ledger/
+│
+├── ground_truth/
+│   ├── discrepancies/
+│   ├── root_causes/
+│   ├── evidence/
+│   └── expected_resolutions/
+│
+├── scripts/
+├── docker/
+├── .env.example
+├── docker-compose.yml
+└── README.md
+```
 
-Think of them as specialized LangGraph nodes with different model requirements:
+---
 
-MODELS = {
-    "document": "Qwen2.5-VL-72B-Instruct",
-    "investigation": "Qwen3-14B",
-    "root_cause": "Qwen3-14B",
-    "policy": "Qwen3-8B",
-    "reconciliation": "Qwen3-8B",
-    "explanation": "Qwen3-8B",
-    "verification": "Qwen3-8B",
-}
+# 42. Development Principles
 
-Then your graph controls what each model is allowed to do.
+### 1. Prefer deterministic systems when deterministic systems are sufficient.
 
-For example, the Reconciliation Agent should receive:
+### 2. Give the LLM the smallest useful responsibility.
 
-Invoice:
-12,400
+### 3. Persist important state before doing long-running work.
 
-Payment:
-11,900
+### 4. Never trust frontend state for authorization or financial state.
 
-Ledger:
-12,400
+### 5. Never let an LLM directly mutate financial records.
 
-Difference:
-500
+### 6. Every financial mutation must be idempotent.
 
-and not be responsible for calculating the $500 itself.
+### 7. Every important conclusion should have evidence.
 
-Your Python/SQL reconciliation engine calculates it.
+### 8. Every financial action should be verifiable.
 
-The LLM then reasons about:
+### 9. Closed accounting periods require explicit controls.
 
-"Why does this $500 difference exist?"
+### 10. Retrieval systems provide context, not authority.
 
-That separation makes the project much more credible as a financial system.
+### 11. Previous cases are precedent, not truth.
 
-My final stack for your project
+### 12. Human approval is a system boundary, not a UI decoration.
 
-If I were building this with you, I'd go with:
+---
 
-Vision/document: Qwen2.5-VL-72B-Instruct
-Complex reasoning: Qwen3-14B
-General agent tasks: Qwen3-8B
-Embeddings: BGE-M3
-Reranking: BGE-reranker-v2-m3
-Entity resolution: deterministic matching + BGE-M3, not LLM-first
-Accounting calculations/reconciliation: Python + PostgreSQL
-Structured relationship reasoning: Neo4j
-Unstructured evidence: BM25 + BGE-M3 + reranker
-Workflow: LangGraph
-Memory: Pinecone
-Guardrails: deterministic validation + Qwen3Guard where appropriate
+# 43. Future Extensions
 
-That gives you a genuinely hybrid AI system, rather than a project where seven LLM calls are pretending to be seven agents.
+Potential future capabilities include:
 
-Today 5:02 PM
-create an archtectureal readme file for my financial close project. ists for gituhub it should be well documented from a to z. also use mermaid to show diagrgams and loops and write tradeoffs add frontend part too.
+- ERP integrations
+- bank API integrations
+- automated statement ingestion
+- anomaly detection
+- cash forecasting
+- continuous reconciliation
+- multi-entity consolidation
+- foreign currency reconciliation
+- intercompany reconciliation
+- duplicate invoice detection
+- fraud-risk signals
+- accounting-period anomaly detection
+- richer financial graph analytics
+- automated close readiness scoring
+- policy version tracking
+- department-specific operational dashboards
 
-I created a full A-to-Z architectural README for the Financial Close project, including:
+---
 
-Complete system architecture
-Backend + frontend architecture
-Mermaid architecture, workflow, state-machine, sequence, ER, and investigation-loop diagrams
-AI agent responsibilities and model assignments
-Deterministic reconciliation vs LLM reasoning
-Hybrid RAG + BM25 + vector + reranking
-Neo4j Knowledge Graph
-Investigation Evidence Graph
-Qwen2.5-VL document pipeline
-Human-in-the-loop approval
-Manager escalation via Slack
-Payment recovery loop
-AccountingProvider abstraction
-PostgreSQL source-of-truth design
-Pinecone precedent memory
-Redis/ARQ/LangGraph workflow architecture
-Frontend/React Query synchronization
-Idempotency and failure semantics
-Accounting-period safety
-Security boundaries
-Observability
-Evaluation and testing
-Deployment architecture
-.env.example
-Repository structure
-Detailed architecture tradeoffs
-End-to-end worked financial discrepancy example
-Design principles and future extensions
+# Architecture Summary
 
-Download the complete FINANCIAL_CLOSE_ARCHITECTURE_README.md
+The system can be summarized as:
 
-I structured it so you can use it directly as the project's GitHub README, while also giving a future contributor enough architectural context to understand why each major component exists. 
+```mermaid
+flowchart TB
+    UI[Finance Control Room<br/>Next.js + React]
 
-FINANCIAL_CLOSE_ARCHITECTURE_README.md
-Document
+    API[FastAPI<br/>Auth / Validation / Idempotency]
+
+    DB[(PostgreSQL<br/>SOURCE OF TRUTH)]
+
+    WF[LangGraph<br/>Durable Stateful Workflow]
+
+    DET[Deterministic Financial Logic]
+    RET[Hybrid Retrieval]
+    GRAPH[Knowledge Graph]
+    MEM[Pinecone<br/>Resolved Cases]
+
+    DOC[Qwen2.5-VL-72B<br/>Document Intelligence]
+    AI1[Qwen3-14B<br/>Investigation / Root Cause]
+    AI2[Qwen3-8B<br/>Policy / Explanation / Verification]
+
+    HUMAN[Human Approval]
+
+    ACCOUNTING[AccountingProvider]
+    SLACK[Manager Approval]
+    PAYMENT[Payment Request]
+    VERIFY[Verification]
+
+    UI --> API
+    API --> DB
+    API --> WF
+
+    WF --> DET
+    WF --> RET
+    WF --> GRAPH
+    WF --> MEM
+    WF --> DOC
+    WF --> AI1
+    WF --> AI2
+
+    DET --> WF
+    RET --> WF
+    GRAPH --> WF
+
+    WF --> HUMAN
+
+    HUMAN -->|Approve| ACCOUNTING
+    HUMAN -->|Reject| SLACK
+
+    SLACK -->|Manager Approves| ACCOUNTING
+    SLACK -->|Manager Rejects| PAYMENT
+
+    PAYMENT --> DB
+    DB --> DET
+
+    ACCOUNTING --> VERIFY
+    VERIFY --> DET
+
+    DET -->|Resolved| DB
+    DB --> MEM
+```
+
+The result is a system where **financial truth remains deterministic and auditable, while AI handles the parts of financial operations that require interpretation, investigation, evidence synthesis, and workflow coordination.**
