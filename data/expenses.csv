@@ -1,0 +1,2 @@
+expense_id,vendor_id,expense_date,amount_invoiced,amount_recorded,currency,category,gl_account,bank_transaction_id,journal_id,status
+EXP-7002,VEND-2002,2026-08-12,3400.00,3040.00,USD,Freight,6100,BT-5008,JE-8507,mismatch

@@ -1,0 +1,3 @@
+bank_account_id,bank_name,account_masked,identifier,currency,gl_account,opening_balance_2026_08_01,closing_balance_2026_08_31
+BANK-USD-01,First Meridian Bank,****4471,ABA 011500120 / 30084471,USD,1000,184300.00,217150.00
+BANK-EUR-01,First Meridian Bank,****8820,GB29 FMBK 6016 1331 9268 20,EUR,1010,42000.00,51000.00

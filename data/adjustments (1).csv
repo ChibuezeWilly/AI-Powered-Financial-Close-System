@@ -1,0 +1,8 @@
+adjustment_id,discrepancy_id,investigation_id,proposed_on,accounting_period,debit_account,credit_account,amount,currency,status,requires_approval_role,approval_id,posted_journal_id,verification_check
+ADJ-5001,DISC-0001,INVG-7001,2026-09-03,2026-08,4200,1100,500.00,USD,awaiting_approval,Finance Manager,APR-6001,,INV-1001 balance equals 0.00
+ADJ-5002,DISC-0002,INVG-7002,2026-09-03,2026-08,1000,1950,8750.00,USD,awaiting_approval,Finance Director,APR-6002,,PAY-2006 unapplied balance equals 0.00 after refund
+ADJ-5003,DISC-0006,INVG-7003,2026-09-03,2026-08,1100,1100,2200.00,USD,proposed,Staff Accountant,,,INV-1006 balance equals 0.00 and INV-1003 balance equals 0.00
+ADJ-5004,DISC-0007,INVG-7004,2026-09-02,2026-08,1100,1900,14000.00,USD,proposed,Finance Manager,APR-6004,,Account 1900 balance equals 0.00
+ADJ-5005,DISC-0004,,2026-09-03,2026-08,1100,6900,315.00,USD,approved,Staff Accountant,APR-6003,,INV-1004 AR equals 9765.00 at 1.0850
+ADJ-5006,DISC-0005,,2026-09-03,2026-08,1100,1000,1250.00,USD,proposed,Finance Manager,,,BT-5007 reconciliation status equals matched
+ADJ-5007,DISC-0009,,2026-09-03,2026-08,6100,2000,360.00,USD,proposed,Staff Accountant,,,Freight expense equals 3400.00 and matches BT-5008

@@ -1,0 +1,14 @@
+policy_id,title,version,effective_date,owner_employee_id,document_path
+POL-PAYMENT-001,Payment Receipt and Application Policy,3.2,2026-01-01,EMP-02,knowledge/policies/payment_policy.md
+POL-DISCOUNT-001,Customer Discount Policy,4.0,2026-04-01,EMP-04,knowledge/policies/discount_policy.md
+POL-REFUND-001,Customer Refund Policy,2.1,2026-01-01,EMP-04,knowledge/policies/refund_policy.md
+POL-CREDITNOTE-001,Credit Note Policy,2.0,2025-10-01,EMP-02,knowledge/policies/credit_note_policy.md
+POL-JE-001,Journal Entry Policy,5.1,2026-01-01,EMP-03,knowledge/policies/journal_entry_policy.md
+POL-ADJUST-001,Adjustment Policy,3.0,2026-01-01,EMP-03,knowledge/policies/adjustment_policy.md
+POL-WRITEOFF-001,Receivable Write-off Policy,2.2,2025-07-01,EMP-03,knowledge/policies/writeoff_policy.md
+POL-RECON-001,Reconciliation Policy,4.1,2026-02-01,EMP-02,knowledge/policies/reconciliation_policy.md
+POL-CLOSE-001,Month-End Close Policy,3.3,2026-01-01,EMP-03,knowledge/policies/month_end_close_policy.md
+POL-APPROVAL-001,Financial Approval Matrix,6.0,2026-04-01,EMP-05,knowledge/policies/approval_matrix.md
+POL-ACCESS-001,Financial Systems Access Control Policy,2.4,2026-01-01,EMP-03,knowledge/policies/access_control_policy.md
+POL-PERIOD-001,Accounting Period Policy,1.8,2025-04-01,EMP-03,knowledge/policies/accounting_period_policy.md
+POL-EXCEPTION-001,Exception Management Policy,2.0,2026-01-01,EMP-05,knowledge/policies/exception_management_policy.md

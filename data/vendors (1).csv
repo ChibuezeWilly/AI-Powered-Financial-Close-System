@@ -1,0 +1,4 @@
+vendor_id,name,category,country,currency,payment_terms
+VEND-2001,Halcyon Print & Packaging,Packaging,USA,USD,NET30
+VEND-2002,Northline Freight,Freight,USA,USD,NET30
+VEND-2003,Sable Office Supplies,Office supplies,USA,USD,NET14

@@ -1,0 +1,19 @@
+account,name,type,normal_balance,is_clearing,requires_monthly_reconciliation
+1000,Cash - Operating USD,asset,debit,false,true
+1010,Cash - Operating EUR,asset,debit,false,true
+1100,Accounts Receivable,asset,debit,false,true
+1190,Allowance for Doubtful Accounts,asset_contra,credit,false,true
+1900,Suspense,asset,debit,true,true
+1950,Unapplied Cash,liability,credit,true,true
+2000,Accounts Payable,liability,credit,false,true
+2100,Accrued Liabilities,liability,credit,false,true
+2200,Sales Tax Payable,liability,credit,false,true
+3000,Retained Earnings,equity,credit,false,false
+4000,Product Revenue,revenue,credit,false,false
+4100,Service Revenue,revenue,credit,false,false
+4200,Sales Discounts,revenue_contra,debit,false,true
+5000,Cost of Goods Sold,expense,debit,false,false
+6100,Freight Expense,expense,debit,false,false
+6200,Office Supplies Expense,expense,debit,false,false
+6900,FX Gain / Loss,expense,debit,false,true
+6950,Bad Debt Expense,expense,debit,false,false

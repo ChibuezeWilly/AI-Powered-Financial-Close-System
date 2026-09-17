@@ -1,0 +1,17 @@
+journal_id,entry_date,accounting_period,description,source,prepared_by,approved_by,approval_id,status,is_adjustment,total_debit,total_credit
+JE-8001,2026-08-03,2026-08,Invoice INV-1001 issued to CUST-1001,billing,system,,,posted,false,12400.00,12400.00
+JE-8002,2026-08-05,2026-08,Invoice INV-1002 issued to CUST-1002,billing,system,,,posted,false,8750.00,8750.00
+JE-8003,2026-08-07,2026-08,Invoice INV-1003 issued to CUST-1003,billing,system,,,posted,false,4300.00,4300.00
+JE-8004,2026-08-11,2026-08,Invoice INV-1004 issued to CUST-1004 (EUR at 1.0500),billing,system,,,posted,false,9450.00,9450.00
+JE-8005,2026-08-14,2026-08,Invoice INV-1005 issued to CUST-1005,billing,system,,,posted,false,6200.00,6200.00
+JE-8006,2026-08-18,2026-08,Invoice INV-1006 issued to CUST-1001,billing,system,,,posted,false,2200.00,2200.00
+JE-8007,2026-08-21,2026-08,Invoice INV-1007 issued to CUST-1003,billing,system,,,posted,false,5150.00,5150.00
+JE-8008,2026-08-25,2026-08,Invoice INV-1008 issued to CUST-1002 (duplicate),billing,system,,,posted,false,8750.00,8750.00
+JE-8501,2026-08-18,2026-08,Cash receipt PAY-2005,cash_application,system,,,posted,false,8750.00,8750.00
+JE-8502,2026-08-26,2026-08,Cash receipt PAY-2011,cash_application,system,,,posted,false,6200.00,6200.00
+JE-8503,2026-08-28,2026-08,Cash receipt PAY-2001,cash_application,system,,,posted,false,11900.00,11900.00
+JE-8504,2026-08-29,2026-08,Cash receipt PAY-2010 applied to INV-1003,cash_application,system,,,posted,false,2200.00,2200.00
+JE-8505,2026-08-31,2026-08,Cash receipt PAY-2008,cash_application,system,,,posted,false,4300.00,4300.00
+JE-8506,2026-08-27,2026-08,Cash receipt PAY-2009 (EUR) with FX gain,cash_application,system,,,posted,false,9819.00,9819.00
+JE-8507,2026-08-12,2026-08,Freight expense EXP-7002 recorded at 3040.00,manual,EMP-01,EMP-02,APR-6006,posted,false,3040.00,3040.00
+JE-9007,2026-08-31,2026-08,Manual AR to Suspense adjustment,manual,EMP-01,,,posted,true,14000.00,14000.00

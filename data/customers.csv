@@ -1,0 +1,6 @@
+customer_id,name,legal_name,country,currency,payment_terms,credit_limit,contact_name,contact_email,created_at
+CUST-1001,Acme Incorporated,Acme Incorporated,USA,USD,NET30,50000.00,Dana Whitfield,ap@acme-inc.example,2023-02-14
+CUST-1002,Bluepeak Logistics GmbH,Bluepeak Logistics GmbH,Germany,USD,NET15,40000.00,Jonas Herzog,kreditoren@bluepeak.example,2023-06-01
+CUST-1003,Corvus Analytics LLC,Corvus Analytics LLC,USA,USD,NET30,25000.00,Marcy Ellsworth,billing@corvusanalytics.example,2024-01-09
+CUST-1004,Dunmore Retail Group,Dunmore Retail Group Ltd,Ireland,EUR,NET30,60000.00,Sean Corrigan,accounts@dunmoreretail.example,2022-11-22
+CUST-1005,Eastport Marine Services,Eastport Marine Services Inc,USA,USD,NET30,30000.00,Hal Petersen,finance@eastportmarine.example,2024-05-30

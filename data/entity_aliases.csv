@@ -1,0 +1,11 @@
+alias_id,raw_value,normalized_value,entity_type,resolved_entity_id,match_signal,confidence,decision,decided_by,decided_at
+ALIAS-0001,ACME INC.,acme incorporated,customer,CUST-1001,legal_suffix_expansion+bank_account_match,0.97,auto_accept,deterministic_rule,2026-08-28
+ALIAS-0002,ACME INCORP,acme incorporated,customer,CUST-1001,prefix_token_match+bank_account_match,0.91,auto_accept,deterministic_rule,2026-08-29
+ALIAS-0003,Acme Inc,acme incorporated,customer,CUST-1001,legal_suffix_expansion,0.95,auto_accept,deterministic_rule,2026-08-03
+ALIAS-0004,BLUEPEAK LOGISTIK GMBH,bluepeak logistics gmbh,customer,CUST-1002,fuzzy_jaro_winkler_0.94,0.86,human_review_accepted,EMP-07,2026-08-19
+ALIAS-0005,CORVUS ANALYTIC LLC,corvus analytics llc,customer,CUST-1003,fuzzy_levenshtein_1,0.93,auto_accept,deterministic_rule,2026-08-07
+ALIAS-0006,DUNMORE RETIAL GROUP,dunmore retail group,customer,CUST-1004,ocr_transposition_rule,0.89,human_review_accepted,EMP-07,2026-08-11
+ALIAS-0007,EASTP0RT MARINE,eastport marine services,customer,CUST-1005,ocr_zero_for_o_rule,0.9,auto_accept,deterministic_rule,2026-08-26
+ALIAS-0008,INV1001,INV-1001,invoice,INV-1001,invoice_number_normalization,0.99,auto_accept,deterministic_rule,2026-08-28
+ALIAS-0009,Invoice #1001,INV-1001,invoice,INV-1001,invoice_number_normalization,0.99,auto_accept,deterministic_rule,2026-08-28
+ALIAS-0010,8859,INV-1006,invoice,INV-1006,po_number_suffix_match,0.72,human_review_accepted,EMP-01,2026-09-03

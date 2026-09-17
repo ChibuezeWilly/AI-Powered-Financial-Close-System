@@ -1,0 +1,8 @@
+employee_id,name,role,department_id,department,approval_authority_usd,can_post_journals,can_lock_period
+EMP-01,Priya Raghunathan,Staff Accountant,DEPT-FIN,Finance,10000.00,true,false
+EMP-02,Tomas Weller,Finance Manager,DEPT-FIN,Finance,50000.00,true,false
+EMP-03,Nadia Okonkwo,Controller,DEPT-FIN,Finance,100000.00,true,true
+EMP-04,Ines Bertrand,Finance Director,DEPT-FIN,Finance,250000.00,false,false
+EMP-05,David Achebe,CFO,DEPT-EXE,Executive,,false,false
+EMP-06,Greg Molloy,Sales Manager,DEPT-SAL,Sales,2000.00,false,false
+EMP-07,Lena Fischer,Collections Analyst,DEPT-FIN,Finance,0.00,false,false

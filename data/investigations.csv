@@ -1,0 +1,5 @@
+investigation_id,discrepancy_id,opened_on,investigator,status,confidence,root_cause_code,recommendation,approval_id,adjustment_id,verified_on
+INVG-7001,DISC-0001,2026-09-01,ai_agent+EMP-01,complete,0.92,RC-DISCOUNT-UNDOCUMENTED,Issue credit note CN-3001 for 500.00 after Finance Manager approval,APR-6001,ADJ-5001,
+INVG-7002,DISC-0002,2026-09-01,ai_agent+EMP-07,complete,0.88,RC-CUSTOMER-DOUBLE-RELEASE,Park PAY-2006 in 1950 Unapplied Cash and refund 8750.00,APR-6002,ADJ-5002,
+INVG-7003,DISC-0006,2026-09-02,ai_agent+EMP-01,complete,0.81,RC-ENTITY-RESOLUTION-FAILURE,Re-allocate PAY-2010 from INV-1003 to INV-1006,,ADJ-5003,
+INVG-7004,DISC-0007,2026-09-01,EMP-03,escalated,0.95,RC-AUTHORITY-LIMIT-BREACH,Reverse JE-9007 and re-post with Finance Manager approval,APR-6004,ADJ-5004,

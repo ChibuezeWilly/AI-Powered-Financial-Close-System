@@ -1,0 +1,7 @@
+allocation_id,payment_id,invoice_id,allocated_amount,allocation_date,allocated_by,method,is_correct,note
+ALLOC-3001,PAY-2001,INV-1001,11900.00,2026-08-28,auto_matcher,reference_match,true,Leaves 500.00 open on INV-1001 - DISC-0001
+ALLOC-3002,PAY-2005,INV-1002,8750.00,2026-08-18,auto_matcher,reference_match,true,
+ALLOC-3003,PAY-2008,INV-1003,4300.00,2026-08-31,auto_matcher,reference_match,true,
+ALLOC-3004,PAY-2009,INV-1004,9000.00,2026-08-27,auto_matcher,reference_match,true,
+ALLOC-3005,PAY-2010,INV-1003,2200.00,2026-08-29,auto_matcher,amount_and_fuzzy_name,false,Wrong invoice - belongs to INV-1006 - DISC-0006
+ALLOC-3006,PAY-2011,INV-1005,6200.00,2026-08-26,auto_matcher,reference_match,true,

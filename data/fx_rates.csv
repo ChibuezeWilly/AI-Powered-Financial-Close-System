@@ -1,0 +1,5 @@
+rate_date,base_currency,quote_currency,rate,source,is_erroneous
+2026-07-31,EUR,USD,1.0500,ecb_daily,false
+2026-08-11,EUR,USD,1.0850,ecb_daily,false
+2026-08-27,EUR,USD,1.0910,ecb_daily,false
+2026-08-31,EUR,USD,1.0875,ecb_month_end,false

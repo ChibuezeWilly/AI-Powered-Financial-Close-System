@@ -1,0 +1,2 @@
+refund_id,customer_id,invoice_id,refund_date,amount,currency,method,reason,bank_transaction_id,journal_id,approval_id,status
+REF-4001,CUST-1005,INV-1005,2026-08-30,1250.00,USD,bank_transfer,Damaged depth gauge returned,BT-5007,,,paid_not_recorded

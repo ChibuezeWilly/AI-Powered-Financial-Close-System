@@ -1,0 +1,7 @@
+approval_id,action_type,subject_id,amount,currency,requested_by,required_approver_role,approver_employee_id,status,requested_at,decided_at,policy_id,note
+APR-6001,discount,INV-1001,500.00,USD,EMP-06,Finance Manager,,missing,,,POL-DISCOUNT-001,Never requested - root cause of DISC-0001
+APR-6002,refund,PAY-2006,8750.00,USD,EMP-07,Finance Director,EMP-04,pending,2026-09-02,,POL-REFUND-001,Refund of duplicate payment
+APR-6003,journal_adjustment,DISC-0004,315.00,USD,EMP-01,Staff Accountant,EMP-01,approved,2026-09-03,2026-09-03,POL-ADJUST-001,Within own authority
+APR-6004,journal_adjustment,JE-9007,14000.00,USD,EMP-01,Finance Manager,,absent,,,POL-JE-001,Control breach - DISC-0007
+APR-6005,credit_note,INV-1008,8750.00,USD,EMP-01,Finance Director,EMP-04,pending,2026-09-03,,POL-CREDITNOTE-001,Cancel duplicate invoice
+APR-6006,journal_entry,JE-8507,3040.00,USD,EMP-01,Finance Manager,EMP-02,approved,2026-08-12,2026-08-12,POL-JE-001,Approved but amount was wrong - DISC-0009
