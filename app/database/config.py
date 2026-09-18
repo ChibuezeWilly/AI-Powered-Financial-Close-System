@@ -56,12 +56,21 @@ class Settings(BaseSettings):
     SLACK_CLIENT_SECRET: str = ""
     SLACK_CHANNEL_ID: str = ""
 
+    EMAIL_PROVIDER: str = "mock"
+    EMAIL_API_KEY: str = ""
+    EMAIL_FROM: str = "finance@tallyflow.local"
+
+    ACCOUNTING_PROVIDER: str = "mock"
+    ACCOUNTING_BASE_URL: str = ""
+    ACCOUNTING_API_KEY: str = ""
+
     NGROK_AUTHTOKEN: str = ""
     AGENTMAIL_API_KEY: str = ""
     AGENT_DISPLAY_NAME: str = ""
     AGENTMAIL_INBOX_ID: str = ""
     LANGFUSE_SECRET_KEY: str = ""
     LANGFUSE_PUBLIC_KEY: str = ""
+    LANGFUSE_HOST: str = Field(default="", validation_alias=AliasChoices("LANGFUSE_HOST", "LANGFUSE_BASE_URL"))
     LANGFUSE_BASE_URL: str = ""
 
     model_config = SettingsConfigDict(

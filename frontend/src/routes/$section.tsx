@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  BarChart3,
   CheckCircle2,
   Clock,
   ExternalLink,
@@ -31,6 +32,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiGet, apiPost } from "../lib/api";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export const Route = createFileRoute("/$section")({ component: SectionRoute });
 
@@ -87,6 +89,17 @@ type UserRecord = {
   total_balance: number;
 };
 
+type AccountRecord = {
+  id: string;
+  code: string;
+  name: string;
+  account_type: string;
+  normal_balance: string;
+  is_active: boolean;
+  transaction_count: number;
+  total_balance: number;
+};
+
 const navigationItems = [
   { label: "Overview", path: "/" },
   { label: "Financial Close", path: "/financial-close" },
@@ -97,7 +110,7 @@ const navigationItems = [
   { label: "Approvals", path: "/approvals" },
   { label: "Documents", path: "/documents" },
   { label: "Reconciled", path: "/reconciled" },
-  { label: "User Accounts", path: "/accounts" },
+  { label: "Accounts", path: "/accounts" },
 ];
 
 const formatCurrency = (val: number, cur = "USD") =>
@@ -139,6 +152,7 @@ function SectionRoute() {
   const [investigations, setInvestigations] = useState<InvestigationRecord[]>([]);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [users, setUsers] = useState<UserRecord[]>([]);
+  const [accounts, setAccounts] = useState<AccountRecord[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState("2026-09");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUserTx, setSelectedUserTx] = useState<{ user: any; transactions: TransactionRecord[] } | null>(null);
@@ -176,8 +190,8 @@ function SectionRoute() {
         setDocuments(data);
       } else if (section === "accounts") {
         const q = searchQuery.trim() ? `?q=${encodeURIComponent(searchQuery.trim())}` : "";
-        const data = await apiGet<UserRecord[]>(`/api/v1/workspace/users${q}`);
-        setUsers(data);
+        const data = await apiGet<AccountRecord[]>(`/api/v1/workspace/accounts${q}`);
+        setAccounts(data);
       }
     } catch (err) {
       toast.error(`Failed to load ${section}`, {
@@ -206,6 +220,26 @@ function SectionRoute() {
       });
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const viewAccountTransactions = async (accountId: string) => {
+    try {
+      const data = await apiGet<{ account: any; transactions: TransactionRecord[] }>(
+        `/api/v1/workspace/accounts/${accountId}/transactions`
+      );
+      setSelectedUserTx({
+        user: {
+          id: data.account.id,
+          full_name: `${data.account.code} - ${data.account.name}`,
+          email: `${data.account.account_type} (${data.account.normal_balance})`,
+          role: data.account.account_type.toUpperCase(),
+          total_balance: data.account.total_balance,
+        },
+        transactions: data.transactions,
+      });
+    } catch (err) {
+      toast.error("Failed to load account transactions");
     }
   };
 
@@ -245,6 +279,12 @@ function SectionRoute() {
       t.account.toLowerCase().includes(q)
     );
   });
+
+  const reconciliationChartData = [
+    { label: "Matched", count: transactions.filter((transaction) => ["RECONCILED", "RESOLVED"].includes(transaction.status)).length },
+    { label: "Variance", count: transactions.filter((transaction) => transaction.difference !== 0).length },
+    { label: "Pending", count: transactions.filter((transaction) => transaction.difference === 0 && !["RECONCILED", "RESOLVED"].includes(transaction.status)).length },
+  ];
 
   return (
     <div className="min-h-screen bg-[#071A2B] text-foreground">
@@ -324,12 +364,6 @@ function SectionRoute() {
         {/* Header */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-[#0a2033]/90 px-5 backdrop-blur md:px-8">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setMobileNavOpen(true)}
-              className="rounded-lg border border-border bg-card p-2 text-muted-foreground hover:text-white lg:hidden"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
             <div>
               <h1 className="text-base font-bold capitalize text-white md:text-lg">
                 {section.replace("-", " ")}
@@ -341,6 +375,13 @@ function SectionRoute() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMobileNavOpen(true)}
+              className="rounded-lg border border-border bg-card p-2 text-muted-foreground hover:text-white lg:hidden"
+              aria-label="Open navigation"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
             <Link
               to="/"
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-[#071a2b] px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-card hover:text-white"
@@ -389,6 +430,27 @@ function SectionRoute() {
                     placeholder="Search by customer, ID, invoice..."
                     className="w-full rounded-xl border border-border bg-[#0a2033] py-2 pl-9 pr-4 text-xs text-white placeholder-muted-foreground outline-none focus:border-primary"
                   />
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-[#0a2033] p-5 shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Reconciliation Status</h3>
+                    <p className="text-xs text-muted-foreground">Invoice matching results for the active period</p>
+                  </div>
+                  <BarChart3 className="h-4 w-4 text-primary" />
+                </div>
+                <div className="mt-4 h-52">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={reconciliationChartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                      <CartesianGrid stroke="#1B3A4D" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fill: "#8FA3B8", fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis allowDecimals={false} tick={{ fill: "#8FA3B8", fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <Tooltip cursor={{ fill: "rgba(255,255,255,0.04)" }} contentStyle={{ background: "#0d2638", border: "1px solid #1B3A4D", borderRadius: 12, color: "#F5F7FA" }} />
+                      <Bar dataKey="count" fill="#19C37D" radius={[5, 5, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
 
@@ -509,6 +571,7 @@ function SectionRoute() {
                         <th className="px-5 py-3 font-semibold">Date</th>
                         <th className="px-5 py-3 font-semibold">Transaction ID</th>
                         <th className="px-5 py-3 font-semibold">Customer</th>
+                        <th className="px-5 py-3 font-semibold">Invoice ID</th>
                         <th className="px-5 py-3 font-semibold text-right">Expected</th>
                         <th className="px-5 py-3 font-semibold text-right">Actual</th>
                         <th className="px-5 py-3 font-semibold text-right">Variance</th>
@@ -525,6 +588,7 @@ function SectionRoute() {
                           <td className="px-5 py-3.5 text-muted-foreground">{tx.date}</td>
                           <td className="px-5 py-3.5 font-mono font-bold text-primary">{tx.id}</td>
                           <td className="px-5 py-3.5 font-medium text-white">{tx.customer}</td>
+                          <td className="px-5 py-3.5 font-mono text-muted-foreground">{tx.invoice_id}</td>
                           <td className="px-5 py-3.5 text-right text-muted-foreground">{formatCurrency(tx.expected_amount)}</td>
                           <td className="px-5 py-3.5 text-right font-medium text-white">{formatCurrency(tx.actual_amount)}</td>
                           <td className={`px-5 py-3.5 text-right font-bold ${tx.difference !== 0 ? "text-rose-400" : "text-emerald-400"}`}>
@@ -844,14 +908,14 @@ function SectionRoute() {
             </div>
           )}
 
-          {/* SECTION: ACCOUNTS (User Accounts) */}
+          {/* SECTION: ACCOUNTS (General Ledger Accounts from accounts table) */}
           {section === "accounts" && (
             <div className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-bold text-white">User Accounts & Portals</h2>
+                  <h2 className="text-lg font-bold text-white">General Ledger Accounts</h2>
                   <p className="text-xs text-muted-foreground">
-                    Inspect user profiles, permissions, assigned volume, and transaction balances.
+                    Inspect chart of accounts, balances, account types, and assigned transaction volume.
                   </p>
                 </div>
                 <div className="relative min-w-[260px]">
@@ -859,7 +923,7 @@ function SectionRoute() {
                   <input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search users by name, email, role..."
+                    placeholder="Search accounts by code, name, type..."
                     className="w-full rounded-xl border border-border bg-[#0a2033] py-2 pl-9 pr-4 text-xs text-white placeholder-muted-foreground outline-none focus:border-primary"
                   />
                 </div>
@@ -870,10 +934,10 @@ function SectionRoute() {
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-border/60 text-muted-foreground">
-                        <th className="px-5 py-3 font-semibold">User ID</th>
-                        <th className="px-5 py-3 font-semibold">Full Name</th>
-                        <th className="px-5 py-3 font-semibold">Email</th>
-                        <th className="px-5 py-3 font-semibold">Role</th>
+                        <th className="px-5 py-3 font-semibold">Account Code</th>
+                        <th className="px-5 py-3 font-semibold">Account Name</th>
+                        <th className="px-5 py-3 font-semibold">Account Type</th>
+                        <th className="px-5 py-3 font-semibold">Normal Balance</th>
                         <th className="px-5 py-3 font-semibold">Status</th>
                         <th className="px-5 py-3 font-semibold text-right">Transactions</th>
                         <th className="px-5 py-3 font-semibold text-right">Total Balance</th>
@@ -881,38 +945,38 @@ function SectionRoute() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40">
-                      {users.map((u) => (
-                        <tr key={u.id} className="transition hover:bg-white/5">
-                          <td className="px-5 py-3.5 font-mono text-muted-foreground">#{u.id}</td>
-                          <td className="px-5 py-3.5 font-bold text-white">{u.full_name}</td>
-                          <td className="px-5 py-3.5 text-muted-foreground">{u.email}</td>
+                      {accounts.map((acct) => (
+                        <tr key={acct.id} className="transition hover:bg-white/5">
+                          <td className="px-5 py-3.5 font-mono text-muted-foreground">{acct.code}</td>
+                          <td className="px-5 py-3.5 font-bold text-white">{acct.name}</td>
+                          <td className="px-5 py-3.5 text-muted-foreground">{acct.account_type}</td>
                           <td className="px-5 py-3.5">
                             <span
                               className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
-                                u.role === "ADMIN"
+                                acct.account_type === "Asset"
+                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                  : acct.account_type === "Liability"
                                   ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
-                                  : u.role === "FINANCE_MANAGER"
-                                  ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-300"
-                                  : u.role === "REGULAR_USER"
-                                  ? "border-primary/40 bg-primary/10 text-primary"
-                                  : "border-sky-500/40 bg-sky-500/10 text-sky-300"
+                                  : acct.account_type === "Revenue"
+                                  ? "border-sky-500/40 bg-sky-500/10 text-sky-300"
+                                  : "border-yellow-500/40 bg-yellow-500/10 text-yellow-300"
                               }`}
                             >
-                              {u.role.replaceAll("_", " ")}
+                              {acct.normal_balance?.toUpperCase() || acct.account_type}
                             </span>
                           </td>
                           <td className="px-5 py-3.5">
                             <span className="inline-flex items-center gap-1 text-emerald-400">
-                              <CheckCircle2 className="h-3 w-3" /> Active
+                              <CheckCircle2 className="h-3 w-3" /> {acct.is_active ? "Active" : "Inactive"}
                             </span>
                           </td>
-                          <td className="px-5 py-3.5 text-right font-medium text-white">{u.transaction_count}</td>
+                          <td className="px-5 py-3.5 text-right font-medium text-white">{acct.transaction_count}</td>
                           <td className="px-5 py-3.5 text-right font-bold text-emerald-400">
-                            {formatCurrency(u.total_balance)}
+                            {formatCurrency(acct.total_balance)}
                           </td>
                           <td className="px-5 py-3.5 text-right">
                             <button
-                              onClick={() => viewUserTransactions(u.id)}
+                              onClick={() => viewAccountTransactions(acct.id)}
                               className="inline-flex rounded-lg border border-primary/30 bg-primary/10 px-3 py-1 font-semibold text-primary hover:bg-primary hover:text-[#071a2b]"
                             >
                               View Records

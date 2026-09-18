@@ -129,7 +129,6 @@ class RevokedSession(Base):
 
 # ────────────────────── Financial Entities ───────────────────────────────
 
-
 class Customer(Base):
     __tablename__ = "customers"
 

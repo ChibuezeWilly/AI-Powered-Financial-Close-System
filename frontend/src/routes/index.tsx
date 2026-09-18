@@ -4,11 +4,13 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowRight,
+  BarChart3,
   Bell,
   CheckCircle2,
   ChevronDown,
   Clock,
   Eye,
+  EyeOff,
   FileText,
   Filter,
   Layers,
@@ -26,7 +28,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiGet, apiPost } from "../lib/api";
 import { useNotifications } from "../hooks/useNotifications";
@@ -35,8 +37,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -92,6 +92,27 @@ type SearchResultItem = {
   content?: string;
   location?: string;
   score?: number;
+};
+
+type CustomerAccountData = {
+  id: string;
+  name: string;
+  legal_name: string;
+  customer_tier: string;
+  country: string;
+  currency: string;
+  credit_limit: number;
+  contact_email: string;
+  total_amount: number;
+  transaction_count: number;
+};
+
+type PortalSearchResult = {
+  query: string;
+  total_matches: number;
+  matching_amount: number;
+  account_total: number;
+  results: TransactionRecord[];
 };
 
 const navigationItems = [
@@ -155,11 +176,17 @@ function Index() {
   const [portalTotal, setPortalTotal] = useState(0);
   const [portalOffset, setPortalOffset] = useState(0);
   const [portalLoadingMore, setPortalLoadingMore] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [portalCustomer, setPortalCustomer] = useState<CustomerAccountData | null>(null);
+  const [portalSearchResult, setPortalSearchResult] = useState<PortalSearchResult | null>(null);
+  const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
 
   // Auth Modal State
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authPortal, setAuthPortal] = useState<"regular" | "admin">("regular");
   const [authNotice, setAuthNotice] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const { notifications, unreadCount, dismiss } = useNotifications(!!token);
 
@@ -215,6 +242,17 @@ function Index() {
     }
   }, [token, user, selectedPeriod]);
 
+  // Fetch customer account from customers table
+  const fetchCustomerAccount = useCallback(async () => {
+    if (!token || user?.role !== "REGULAR_USER") return;
+    try {
+      const data = await apiGet<CustomerAccountData>("/api/v1/portal/customer-account");
+      setPortalCustomer(data);
+    } catch (err) {
+      console.error("Customer account load failed", err);
+    }
+  }, [token, user]);
+
   // Fetch customer portal transactions
   const fetchPortalData = useCallback(
     async (offset = 0, append = false) => {
@@ -245,12 +283,45 @@ function Index() {
 
   useEffect(() => {
     if (user?.role === "REGULAR_USER") {
+      fetchCustomerAccount();
       fetchPortalData(0, false);
     } else if (user) {
       fetchAdminData();
       fetchInsights();
     }
-  }, [user, selectedPeriod, fetchAdminData, fetchInsights, fetchPortalData]);
+  }, [user, selectedPeriod, fetchAdminData, fetchInsights, fetchPortalData, fetchCustomerAccount]);
+
+  const overviewChartData = [
+    {
+      label: "Reconciled",
+      count: transactions.filter((transaction) => ["RECONCILED", "RESOLVED"].includes(transaction.status)).length,
+      fill: "#19C37D",
+    },
+    {
+      label: "Variance",
+      count: transactions.filter((transaction) => transaction.difference !== 0).length,
+      fill: "#fb7185",
+    },
+    {
+      label: "Pending",
+      count: transactions.filter((transaction) => !["RECONCILED", "RESOLVED"].includes(transaction.status) && transaction.difference === 0).length,
+      fill: "#fbbf24",
+    },
+  ];
+
+  const invoiceChartData = transactions
+    .reduce<{ invoice: string; amount: number; variance: number }[]>((invoiceTotals, transaction) => {
+      const existing = invoiceTotals.find((item) => item.invoice === transaction.invoice_id);
+      if (existing) {
+        existing.amount += transaction.actual_amount;
+        existing.variance += Math.abs(transaction.difference);
+      } else {
+        invoiceTotals.push({ invoice: transaction.invoice_id, amount: transaction.actual_amount, variance: Math.abs(transaction.difference) });
+      }
+      return invoiceTotals;
+    }, [])
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 6);
 
   // 3-Source Search
   const handleSearch = async (e: React.FormEvent) => {
@@ -266,6 +337,25 @@ function Index() {
       toast.error("Search failed");
     } finally {
       setSearchLoading(false);
+    }
+  };
+
+  const handleCustomerSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customerSearch.trim()) {
+      setPortalSearchResult(null);
+      return;
+    }
+    setCustomerSearchLoading(true);
+    try {
+      const data = await apiGet<PortalSearchResult>(
+        `/api/v1/portal/transactions/search?q=${encodeURIComponent(customerSearch.trim())}`
+      );
+      setPortalSearchResult(data);
+    } catch (err) {
+      toast.error("Transaction search failed");
+    } finally {
+      setCustomerSearchLoading(false);
     }
   };
 
@@ -295,8 +385,14 @@ function Index() {
     const form = new FormData(e.currentTarget);
     const email = form.get("email");
     const password = form.get("password");
+    const confirmPassword = form.get("confirm_password");
     const full_name = form.get("full_name");
     const role = form.get("role") || (authPortal === "regular" ? "REGULAR_USER" : "ANALYST");
+
+    if (authMode === "register" && password !== confirmPassword) {
+      setAuthNotice("Passwords do not match");
+      return;
+    }
 
     const endpoint = authMode === "login" ? "/api/v1/auth/portal-login" : "/api/v1/auth/portal-register";
     const payload =
@@ -426,15 +522,49 @@ function Index() {
 
             <label className="block text-xs font-semibold text-slate-300">
               Password
-              <input
-                required
-                minLength={8}
-                type="password"
-                name="password"
-                placeholder="••••••••••••"
-                className="mt-1 w-full rounded-xl border border-border bg-[#071a2b] px-3.5 py-2.5 text-xs text-white placeholder-muted-foreground outline-none focus:border-primary"
-              />
+              <div className="relative mt-1">
+                <input
+                  required
+                  minLength={12}
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  placeholder="••••••••••••"
+                  className="w-full rounded-xl border border-border bg-[#071a2b] px-3.5 py-2.5 pr-10 text-xs text-white placeholder-muted-foreground outline-none focus:border-primary"
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  className="absolute right-2 top-2 text-muted-foreground hover:text-white"
+                >
+                  {showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                </button>
+              </div>
             </label>
+
+            {authMode === "register" && (
+              <label className="block text-xs font-semibold text-slate-300">
+                Confirm Password
+                <div className="relative mt-1">
+                  <input
+                    required
+                    minLength={12}
+                    type={showConfirmPassword ? "text" : "password"}
+                    name="confirm_password"
+                    placeholder="••••••••••••"
+                    className="w-full rounded-xl border border-border bg-[#071a2b] px-3.5 py-2.5 pr-10 text-xs text-white placeholder-muted-foreground outline-none focus:border-primary"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                    onClick={() => setShowConfirmPassword((visible) => !visible)}
+                    className="absolute right-2 top-2 text-muted-foreground hover:text-white"
+                  >
+                    {showConfirmPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </button>
+                </div>
+              </label>
+            )}
           </div>
 
           {authNotice && (
@@ -470,7 +600,7 @@ function Index() {
 
   // REGULAR USER PORTAL VIEW
   if (user.role === "REGULAR_USER") {
-    const totalVolume = portalTxs.reduce((acc, t) => acc + t.actual_amount, 0);
+    const totalVolume = portalCustomer?.total_amount ?? portalTxs.reduce((acc, t) => acc + t.actual_amount, 0);
 
     return (
       <div className="min-h-screen bg-[#071A2B] text-foreground">
@@ -497,11 +627,11 @@ function Index() {
         </header>
 
         <main className="mx-auto max-w-6xl p-6 md:p-10 space-y-6">
-          <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-[#0a2033] to-[#0d2638] p-6 shadow-xl">
+          <div className="rounded-2xl border border-primary/20 bg-linear-to-r from-[#0a2033] to-[#0d2638] p-6 shadow-xl">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[11px] font-bold text-primary">
-                  VERIFIED ACCOUNT
+                  {portalCustomer?.customer_tier?.toUpperCase() || "VERIFIED"} ACCOUNT{portalCustomer ? ` · ${portalCustomer.id}` : ""}
                 </span>
                 <h2 className="mt-2 text-2xl font-bold text-white">Welcome, {user.full_name}</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -532,6 +662,78 @@ function Index() {
               </button>
             ))}
           </div>
+
+          <form onSubmit={handleCustomerSearch} className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                value={customerSearch}
+                onChange={(e) => {
+                  setCustomerSearch(e.target.value);
+                  if (!e.target.value.trim()) {
+                    setPortalSearchResult(null);
+                  }
+                }}
+                placeholder="Search your transactions by ID, invoice, or account..."
+                className="w-full rounded-xl border border-border bg-[#0a2033] py-2 pl-9 pr-4 text-xs text-white placeholder-muted-foreground outline-none focus:border-primary"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={customerSearchLoading}
+              className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-[#071a2b] hover:bg-[#4ADE80] disabled:opacity-50"
+            >
+              {customerSearchLoading ? "Searching..." : "Search"}
+            </button>
+          </form>
+
+          {portalSearchResult && (
+            <div className="divide-y divide-border/40 rounded-xl border border-border bg-[#0a2033] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 text-xs">
+                <p className="text-muted-foreground">
+                  Found <span className="font-bold text-white">{portalSearchResult.total_matches}</span> transaction{portalSearchResult.total_matches === 1 ? "" : "s"} matching "{portalSearchResult.query}"
+                </p>
+                <div className="text-right">
+                  <span className="text-muted-foreground">Account Total: </span>
+                  <span className="font-bold text-emerald-400">{formatCurrency(portalSearchResult.account_total)}</span>
+                  {portalSearchResult.matching_amount !== portalSearchResult.account_total && (
+                    <span className="text-[11px] text-muted-foreground ml-2">
+                      (Matching: {formatCurrency(portalSearchResult.matching_amount)})
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {portalSearchResult.results.length === 0 ? (
+                <div className="py-4 text-center text-xs text-muted-foreground">
+                  No transactions found matching your search.
+                </div>
+              ) : (
+                <div className="divide-y divide-border/40 pt-1">
+                  {portalSearchResult.results.map((tx) => (
+                    <div
+                      key={tx.id}
+                      onClick={() => navigate({ to: "/transactions/$transactionId", params: { transactionId: tx.id } })}
+                      className="flex cursor-pointer items-center justify-between py-2.5 transition hover:bg-white/5 px-2 rounded-lg text-xs"
+                    >
+                      <div>
+                        <p className="font-semibold text-white font-mono">{tx.id} · <span className="text-muted-foreground">{tx.invoice_id}</span></p>
+                        <p className="text-muted-foreground text-[11px]">
+                          {tx.date} · {tx.account}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-bold text-white block">{formatCurrency(tx.actual_amount)}</span>
+                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold ${getStatusBadge(tx.status)}`}>
+                          {tx.status.replaceAll("_", " ")}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Transactions List (20 items with Show More) */}
           <div className="overflow-hidden rounded-2xl border border-border bg-[#0a2033]">
@@ -681,12 +883,6 @@ function Index() {
         {/* Top Bar */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-[#0a2033]/90 px-5 backdrop-blur md:px-8">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setMobileSidebarOpen(true)}
-              className="rounded-lg border border-border bg-card p-2 text-muted-foreground hover:text-white lg:hidden"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
             <div>
               <p className="text-sm font-bold text-white">TallyFlow Operations</p>
               <p className="text-xs text-muted-foreground">
@@ -698,9 +894,14 @@ function Index() {
 
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-[#071a2b] px-3 py-1 text-xs font-medium text-primary">
-              <Sparkles className="h-3.5 w-3.5" /> Hugging Face Inference Online
+              <Sparkles className="h-3.5 w-3.5" /> Inference Online 
             </div>
-
+            <button
+              onClick={() => setMobileSidebarOpen(true)}
+              className="rounded-lg border border-border bg-card p-2 text-muted-foreground hover:text-white lg:hidden"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
             {/* Notifications */}
             <div className="relative">
               <button
@@ -828,8 +1029,55 @@ function Index() {
             </Link>
           </div>
 
+          {/* OVERVIEW BAR CHARTS */}
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            <div className="rounded-2xl border border-border bg-[#0a2033] p-5 shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-white">Close Status</h3>
+                  <p className="text-xs text-muted-foreground">Current period transaction status</p>
+                </div>
+                <BarChart3 className="h-4 w-4 text-primary" />
+              </div>
+              <div className="mt-4 h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={overviewChartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                    <CartesianGrid stroke="#1B3A4D" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fill: "#8FA3B8", fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis allowDecimals={false} tick={{ fill: "#8FA3B8", fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip cursor={{ fill: "rgba(255,255,255,0.04)" }} contentStyle={{ background: "#0d2638", border: "1px solid #1B3A4D", borderRadius: 12, color: "#F5F7FA" }} />
+                    <Bar dataKey="count" radius={[5, 5, 0, 0]}>
+                      {overviewChartData.map((entry) => <Cell key={entry.label} fill={entry.fill} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-[#0a2033] p-5 shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-white">Invoice Activity</h3>
+                  <p className="text-xs text-muted-foreground">Top invoices by posted amount</p>
+                </div>
+                <FileText className="h-4 w-4 text-primary" />
+              </div>
+              <div className="mt-4 h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={invoiceChartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+                    <CartesianGrid stroke="#1B3A4D" vertical={false} />
+                    <XAxis dataKey="invoice" tick={{ fill: "#8FA3B8", fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: "#8FA3B8", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
+                    <Tooltip cursor={{ fill: "rgba(255,255,255,0.04)" }} formatter={(value: number) => [formatCurrency(value), "Posted"]} contentStyle={{ background: "#0d2638", border: "1px solid #1B3A4D", borderRadius: 12, color: "#F5F7FA" }} />
+                    <Bar dataKey="amount" name="Posted" fill="#19C37D" radius={[5, 5, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
           {/* OVERVIEW AI INSIGHTS (HF Inference Llama-3.3-70B) */}
-          <div className="rounded-2xl border border-primary/30 bg-gradient-to-r from-[#0d2638] via-[#0a2033] to-[#0a2033] p-6 shadow-xl">
+          <div className="rounded-2xl border border-primary/30 bg-linear-to-r from-[#0d2638] via-[#0a2033] to-[#0a2033] p-6 shadow-xl">
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary animate-pulse" />
@@ -1045,3 +1293,7 @@ function Index() {
     </div>
   );
 }
+
+
+
+// change use admin account for this email
