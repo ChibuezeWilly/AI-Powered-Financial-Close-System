@@ -22,7 +22,11 @@ _tokenizer = None
 def _get_tokenizer():
     global _tokenizer
     if _tokenizer is None:
-        _tokenizer = tiktoken.encoding_for_model("gpt-4o")
+        try:
+            _tokenizer = tiktoken.encoding_for_model("gpt-4o")
+        except Exception as exc:
+            logger.warning("Tokenizer unavailable; using offline word chunking: %s", exc)
+            _tokenizer = False
     return _tokenizer
 
 
@@ -33,6 +37,17 @@ def chunk_text(
 ) -> list[str]:
     """Split text into token-bounded chunks with overlap."""
     tokenizer = _get_tokenizer()
+    if tokenizer is False:
+        words = text.split()
+        chunks = []
+        start = 0
+        while start < len(words):
+            chunk = " ".join(words[start:start + chunk_size])
+            if chunk:
+                chunks.append(chunk)
+            start += chunk_size - chunk_overlap
+        return chunks
+
     tokens = tokenizer.encode(text)
     chunks = []
     start = 0
@@ -88,6 +103,10 @@ def generate_single_embedding(text: str) -> list[float] | None:
 _bm25_corpus: list[list[str]] = []
 _bm25_docs: list[dict] = []
 _bm25_index = None
+
+
+def has_bm25_index() -> bool:
+    return _bm25_index is not None and bool(_bm25_docs)
 
 
 def _tokenize_for_bm25(text: str) -> list[str]:

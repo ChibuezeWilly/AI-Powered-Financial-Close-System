@@ -10,8 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..schema.models import AccountingPeriod, FinancialTransaction
 
-DATA_ROOT = Path(__file__).resolve().parents[2] / "data"
-
+DATA_ROOT = Path(__file__).resolve().parents[2] / "kw"
 
 def import_invoices(db: Session, period: str | None = None) -> dict:
     """Import invoice/payment outcomes as normalized transaction facts once per invoice."""

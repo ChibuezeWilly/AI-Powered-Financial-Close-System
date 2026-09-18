@@ -105,6 +105,7 @@ function TransactionDetailRoute() {
   const [reason, setReason] = useState("");
   const [actionNotice, setActionNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [investigating, setInvestigating] = useState(false);
   const [sourceDocument, setSourceDocument] = useState<{ name: string; content: string } | null>(null);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [auditTrail, setAuditTrail] = useState<AuditTrail | null>(null);
@@ -212,6 +213,25 @@ function TransactionDetailRoute() {
     }
   }
 
+  async function runInvestigation() {
+    if (!transaction) return;
+    setInvestigating(true);
+    setActionNotice("");
+    try {
+      await apiPost(`/api/v1/transactions/${transaction.id}/investigate`);
+      await loadTransaction();
+      toast.success("AI investigation completed", {
+        description: "Evidence and recommendations are ready for human review.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The AI investigation could not be completed.";
+      toast.error("Investigation failed", { description: message });
+      setActionNotice(message);
+    } finally {
+      setInvestigating(false);
+    }
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-background p-8 text-foreground">
@@ -241,9 +261,11 @@ function TransactionDetailRoute() {
   const evidence = transaction.investigation?.evidence ?? [];
   const timeline = transaction.investigation?.timeline ?? ["Investigation scheduled", "Evidence pending"];
   const graph = transaction.evidence_graph ?? [];
-  const requiresDecision = ["AWAITING_HUMAN_APPROVAL", "AWAITING_MANAGER_APPROVAL"].includes(transaction.status);
+  const investigationComplete = transaction.investigation?.status === "COMPLETED";
+  const requiresDecision = investigationComplete && ["AWAITING_HUMAN_APPROVAL", "AWAITING_MANAGER_APPROVAL"].includes(transaction.status);
   const managerDecision = transaction.status === "AWAITING_MANAGER_APPROVAL";
   const isResolved = ["RECONCILED", "RESOLVED"].includes(transaction.status);
+  const canInvestigate = transaction.difference !== 0 && !isResolved && !investigationComplete;
   const journalVerified = transaction.journal_entry?.status === "POSTED";
 
   return (
@@ -512,7 +534,20 @@ function TransactionDetailRoute() {
           </div>
           <div className="rounded-lg border border-border bg-[#071a2b] p-4">
             <p className="text-base text-foreground">{transaction.recommendation ?? "A documented action has not yet been generated."}</p>
-            {requiresDecision ? (
+            {canInvestigate ? (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  disabled={investigating}
+                  onClick={runInvestigation}
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-[#071a2b] enabled:hover:bg-[#4ADE80] disabled:opacity-50"
+                >
+                  {investigating && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {investigating ? "Investigating…" : "Investigate transaction"}
+                </button>
+                <p className="mt-2 text-xs text-muted-foreground">Approve and reject controls unlock after the AI investigation is completed.</p>
+              </div>
+            ) : requiresDecision ? (
               <div className="mt-4">
                 <label className="block text-sm text-muted-foreground">
                   Decision reason

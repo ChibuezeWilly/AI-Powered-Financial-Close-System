@@ -30,10 +30,10 @@ class Settings(BaseSettings):
 
     HF_TOKEN: str = ""
     EMBEDDING_MODEL: str = "BAAI/bge-m3"
-    RERANKING_MODEL: str = "BAAI/bge-reranker-v2-m3"
-    VISION_MODEL: str = "Qwen2.5-VL-72B-Instruct"
-    INVESTIGATION_MODEL: str = "Qwen3-14B"
-    GENERAL_AGENT_MODEL: str = "Qwen3-8B"
+    RERANKING_MODEL: str = "BM25"
+    VISION_MODEL: str = "meta-llama/Llama-3.3-70B-Instruct"
+    INVESTIGATION_MODEL: str = "meta-llama/Llama-3.3-70B-Instruct"
+    GENERAL_AGENT_MODEL: str = "meta-llama/Llama-3.3-70B-Instruct"
     LLM_PROVIDER: str = ""
     LLM_API_KEY: str = ""
     LLM_BASE_URL: str = ""
@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     PINECONE_API_KEY: str = Field(default="", validation_alias=AliasChoices("PINECONE_API_KEY", "PINE_CONE_API_KEY"))
     PINECONE_INDEX: str = ""
     PINECONE_NAMESPACE: str = "financial-close-resolutions"
+    PINECONE_DIMENSION: int = 1024
 
     NEO4J_URI: str = Field(default="", validation_alias=AliasChoices("NEO4J_URI", "GRAPH_DB_URI", "GRAPH_DATABASE_URI"))
     NEO4J_USERNAME: str = Field(default="", validation_alias=AliasChoices("NEO4J_USERNAME", "GRAPH_USERNAME"))

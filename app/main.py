@@ -17,6 +17,9 @@ from .routers.auth import hash_password, router as auth_router
 from .routers.financial_close import router as financial_close_router
 from .routers.integrations import router as integrations_router, slack_callback_router
 from .routers.transactions import router as transactions_router
+from .routers.workspace import router as workspace_router
+from .services.embedding_service import build_bm25_index
+from .schema.models import DocumentChunk
 
 
 def _seed_database() -> None:
@@ -179,6 +182,9 @@ async def lifespan(app: FastAPI):
     """Application startup and shutdown lifecycle."""
    
     _seed_database()
+    with SessionLocal() as db:
+        chunks = db.query(DocumentChunk).all()
+        build_bm25_index([{"content": chunk.content, "document_id": chunk.document_id, "embedding_id": chunk.embedding_id} for chunk in chunks])
 
     ngrok_authtoken = settings.NGROK_AUTHTOKEN
     if ngrok_authtoken:
@@ -189,16 +195,39 @@ async def lifespan(app: FastAPI):
                 authtoken=ngrok_authtoken,
             )
             print(f"ngrok tunnel available at: {listener.url()}")
-            app.state.ngrok_listener = listener
         except Exception as e:
             print(f"ngrok connection failed (non-fatal): {e}")
             app.state.ngrok_listener = None
     else:
         app.state.ngrok_listener = None
 
+    # Start background ARQ investigation worker
+    arq_worker = None
+    worker_task = None
+    if settings.REDIS_URL:
+        try:
+            import asyncio
+            from arq.worker import create_worker
+            from .arq_worker import WorkerSettings
+            arq_worker = create_worker(WorkerSettings)
+            worker_task = asyncio.create_task(arq_worker.async_run())
+            app.state.arq_worker = arq_worker
+            app.state.arq_worker_task = worker_task
+            print("TallyFlow ARQ investigation worker started in background")
+        except Exception as exc:
+            print(f"ARQ worker background initialization failed (non-fatal): {exc}")
+
     try:
         yield
     finally:
+        if arq_worker is not None:
+            try:
+                await arq_worker.close()
+            except Exception:
+                pass
+        if worker_task is not None:
+            worker_task.cancel()
+
         listener = getattr(app.state, "ngrok_listener", None)
         if listener is not None:
             try:
@@ -224,8 +253,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         settings.FRONTEND_ORIGIN,
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ],
@@ -238,6 +267,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(financial_close_router)
 app.include_router(transactions_router)
+app.include_router(workspace_router)
 app.include_router(integrations_router)
 app.include_router(slack_callback_router)
 

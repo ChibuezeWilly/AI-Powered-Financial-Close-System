@@ -30,7 +30,7 @@ class Role(str, Enum):
     FINANCE_ADMIN = "FINANCE_ADMIN"
     FINANCE_MANAGER = "FINANCE_MANAGER"
     ANALYST = "ANALYST"
-    VIEWER = "VIEWER"
+    REGULAR_USER = "REGULAR_USER"
 
 
 class PeriodStatus(str, Enum):
@@ -113,6 +113,9 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     organization_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    transactions: Mapped[list[FinancialTransaction]] = relationship("FinancialTransaction", back_populates="user")
+    approvals: Mapped[list[Approval]] = relationship("Approval", back_populates="decider")
 
 
 class RevokedSession(Base):
@@ -254,6 +257,8 @@ class Invoice(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
+    financial_transactions: Mapped[list[FinancialTransaction]] = relationship("FinancialTransaction", back_populates="invoice")
+
 
 class InvoiceLine(Base):
     __tablename__ = "invoice_lines"
@@ -305,7 +310,8 @@ class LedgerEntry(Base):
     __tablename__ = "ledger_entries"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
-    journal_entry_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    journal_entry_id: Mapped[str | None] = mapped_column(ForeignKey("journal_entries.id"), nullable=True, index=True)
+    transaction_id: Mapped[str | None] = mapped_column(ForeignKey("financial_transactions.id"), nullable=True, index=True)
     account_code: Mapped[str] = mapped_column(String(20), index=True)
     account_name: Mapped[str] = mapped_column(String(200))
     debit: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
@@ -315,6 +321,9 @@ class LedgerEntry(Base):
     accounting_period: Mapped[str] = mapped_column(String(7), index=True)
     posted_date: Mapped[str] = mapped_column(String(10))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    journal_entry: Mapped[JournalEntry | None] = relationship("JournalEntry", back_populates="ledger_entries")
+    transaction: Mapped[FinancialTransaction | None] = relationship("FinancialTransaction", back_populates="ledger_entries")
 
 
 class JournalEntry(Base):
@@ -332,6 +341,9 @@ class JournalEntry(Base):
     status: Mapped[str] = mapped_column(String(16), default="POSTED")
     provider_id: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    transaction: Mapped[FinancialTransaction | None] = relationship("FinancialTransaction", back_populates="journal_entries")
+    ledger_entries: Mapped[list[LedgerEntry]] = relationship("LedgerEntry", back_populates="journal_entry")
 
 
 class Expense(Base):
@@ -401,12 +413,13 @@ class FinancialTransaction(Base):
     __tablename__ = "financial_transactions"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     period: Mapped[str] = mapped_column(String(7), index=True)
     transaction_date: Mapped[str] = mapped_column(String(10))
     tx_type: Mapped[str] = mapped_column(String(40), default="invoice_payment")
     customer: Mapped[str] = mapped_column(String(160))
     customer_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
-    invoice_id: Mapped[str] = mapped_column(String(32))
+    invoice_id: Mapped[str | None] = mapped_column(String(32), ForeignKey("invoices.id"), nullable=True, index=True)
     payment_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     bank_transaction_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     account: Mapped[str] = mapped_column(String(100))
@@ -426,6 +439,14 @@ class FinancialTransaction(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
     )
+
+    user: Mapped[User | None] = relationship("User", back_populates="transactions")
+    invoice: Mapped[Invoice | None] = relationship("Invoice", back_populates="financial_transactions")
+    investigations: Mapped[list[Investigation]] = relationship("Investigation", back_populates="transaction")
+    discrepancies: Mapped[list[Discrepancy]] = relationship("Discrepancy", back_populates="transaction")
+    approvals: Mapped[list[Approval]] = relationship("Approval", back_populates="transaction")
+    journal_entries: Mapped[list[JournalEntry]] = relationship("JournalEntry", back_populates="transaction")
+    ledger_entries: Mapped[list[LedgerEntry]] = relationship("LedgerEntry", back_populates="transaction")
 
     __table_args__ = (
         Index("ix_ft_period_status", "period", "status"),
@@ -452,6 +473,8 @@ class Investigation(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    transaction: Mapped[FinancialTransaction | None] = relationship("FinancialTransaction", back_populates="investigations")
 
 
 class InvestigationStep(Base):
@@ -499,6 +522,8 @@ class Discrepancy(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    transaction: Mapped[FinancialTransaction | None] = relationship("FinancialTransaction", back_populates="discrepancies")
+
 
 # ──────────────────── Approvals & Actions ───────────────────────────────
 
@@ -514,6 +539,9 @@ class Approval(Base):
     reason: Mapped[str] = mapped_column(Text)
     decided_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    transaction: Mapped[FinancialTransaction | None] = relationship("FinancialTransaction", back_populates="approvals")
+    decider: Mapped[User | None] = relationship("User", back_populates="approvals")
 
 
 class ApprovalRequest(Base):

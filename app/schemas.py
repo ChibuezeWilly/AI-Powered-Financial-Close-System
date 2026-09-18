@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
@@ -9,6 +11,11 @@ class AccountCreate(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=2, max_length=160)
     password: str = Field(min_length=12, max_length=128)
+    role: str | None = None
+
+
+class PortalRegisterRequest(AccountCreate):
+    portal: Literal["regular", "admin"]
 
 
 class AccountUpdate(BaseModel):
@@ -21,6 +28,10 @@ class AccountUpdate(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+
+class PortalLoginRequest(LoginRequest):
+    portal: Literal["regular", "admin"]
 
 
 class UserResponse(BaseModel):

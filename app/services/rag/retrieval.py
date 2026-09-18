@@ -1,10 +1,13 @@
-"""Hybrid retrieval with dense (Pinecone) + sparse (BM25) + RRF + reranking."""
+"""Hybrid retrieval with dense (Pinecone) + sparse (BM25) + BM25 reranking."""
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-from ..embedding_service import bm25_search, reciprocal_rank_fusion
+from ..embedding_service import bm25_search, has_bm25_index, reciprocal_rank_fusion
+from ...database.database import SessionLocal
+from ...schema.models import DocumentChunk
+import json
 from ..pinecone_service import search_similar
 
 logger = logging.getLogger(__name__)
@@ -63,6 +66,19 @@ def dense_search(
 
 def sparse_search(query: str, top_k: int = 10) -> list[dict]:
     """Search BM25 index for exact keyword matches."""
+    if not has_bm25_index():
+        from ..embedding_service import build_bm25_index
+        with SessionLocal() as db:
+            chunks = db.query(DocumentChunk).all()
+            build_bm25_index([
+                {
+                    "content": chunk.content,
+                    "document_id": chunk.document_id,
+                    "embedding_id": chunk.embedding_id,
+                    **(json.loads(chunk.metadata_json or "{}")),
+                }
+                for chunk in chunks
+            ])
     results = bm25_search(query, top_k=top_k)
     return [
         {
@@ -97,25 +113,26 @@ def hybrid_search(
 # ── Reranking ──────────────────────────────────────────────────────────
 
 def rerank_results(query: str, results: list[dict], top_k: int = 5) -> list[dict]:
-    """Rerank results using cross-encoder for improved precision."""
+    """Rerank results strictly with BM25 scores; no local cross-encoder is loaded."""
     if not results:
         return []
 
     try:
-        from sentence_transformers import CrossEncoder
+        from rank_bm25 import BM25Okapi
+        tokenized_corpus = [result.get("content", "").lower().split() for result in results]
+        bm25_model = BM25Okapi(tokenized_corpus)
+        query_tokens = query.lower().split()
+        scores = bm25_model.get_scores(query_tokens)
+        for idx, result in enumerate(results):
+            result["rerank_score"] = float(scores[idx])
+    except Exception:
+        query_tokens_set = set(query.lower().split())
+        for result in results:
+            content_tokens = set(result.get("content", "").lower().split())
+            overlap = len(query_tokens_set & content_tokens)
+            result["rerank_score"] = float(result.get("bm25_score", 0)) + overlap
 
-        model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-        pairs = [(query, r.get("content", "")) for r in results]
-        scores = model.predict(pairs)
-
-        for i, score in enumerate(scores):
-            results[i]["rerank_score"] = float(score)
-
-        reranked = sorted(results, key=lambda x: x.get("rerank_score", 0), reverse=True)
-        return reranked[:top_k]
-    except Exception as e:
-        logger.warning("Reranking failed, returning unranked results: %s", e)
-        return results[:top_k]
+    return sorted(results, key=lambda item: item.get("rerank_score", 0), reverse=True)[:top_k]
 
 
 # ── Main Retrieval Function ────────────────────────────────────────────

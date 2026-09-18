@@ -37,7 +37,7 @@ def get_pinecone_index():
         if index_name not in existing:
             pc.create_index(
                 name=index_name,
-                dimension=384,  # MiniLM-L6-v2 dimension
+                dimension=1024,  # BAAI/bge-m3 dimension
                 metric="cosine",
                 spec=ServerlessSpec(cloud="aws", region="us-east-1"),
             )
@@ -94,8 +94,9 @@ def neo4j_session(database: str | None = None):
     driver = get_neo4j_driver()
     if driver is None:
         return None
-    db = database or settings.NEO4J_DATABASE
-    return driver.session(database=db)
+    if database and database != "neo4j":
+        return driver.session(database=database)
+    return driver.session()
 
 
 # ─────────────────────── Slack ──────────────────────────────────────────
@@ -129,34 +130,47 @@ def get_slack_client():
 
 # ─────────────────────── Embedding Model ────────────────────────────────
 
-_embedding_model = None
+_embedding_client = None
 
 
 def get_embedding_model():
-    """Return a SentenceTransformer model for dense embeddings (lazy init)."""
-    global _embedding_model
-    if _embedding_model is not None:
-        return _embedding_model
-
-    model_name = settings.EMBEDDING_MODEL
+    """Return the Hugging Face InferenceClient used for 1024-d embeddings."""
+    global _embedding_client
+    if _embedding_client is not None:
+        return _embedding_client
+    if not settings.HF_TOKEN:
+        logger.warning("HF_TOKEN is not set - embeddings are unavailable.")
+        return None
     try:
-        from sentence_transformers import SentenceTransformer
+        from huggingface_hub import InferenceClient
 
-        _embedding_model = SentenceTransformer(model_name)
-        logger.info("Loaded embedding model '%s' (dim=%d)", model_name, _embedding_model.get_sentence_embedding_dimension())
-        return _embedding_model
-    except Exception as e:
-        logger.error("Failed to load embedding model '%s': %s", model_name, e)
+        _embedding_client = InferenceClient(token=settings.HF_TOKEN)
+        return _embedding_client
+    except Exception as exc:
+        logger.error("Failed to initialize Hugging Face embeddings: %s", exc)
         return None
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
-    """Generate dense embeddings for a list of texts."""
-    model = get_embedding_model()
-    if model is None:
+    """Generate 1024-dimensional embeddings through Hugging Face inference."""
+    client = get_embedding_model()
+    if client is None:
         return []
-    embeddings = model.encode(texts, show_progress_bar=False, convert_to_numpy=True)
-    return embeddings.tolist()
+    try:
+        embeddings = client.feature_extraction(texts, model=settings.EMBEDDING_MODEL)
+        values = embeddings.tolist() if hasattr(embeddings, "tolist") else embeddings
+        if values and isinstance(values[0], (int, float)):
+            values = [values]
+        elif values and isinstance(values[0][0], list):
+            # Feature extraction can return token vectors: mean-pool them.
+            values = [[sum(token[i] for token in vector) / len(vector) for i in range(len(vector[0]))] for vector in values]
+        if values and len(values[0]) != 1024:
+            logger.error("Embedding model returned dimension %s; expected 1024.", len(values[0]))
+            return []
+        return [[float(value) for value in vector] for vector in values]
+    except Exception as exc:
+        logger.error("Hugging Face embedding request failed: %s", exc)
+        return []
 
 
 # ─────────────────────── AgentMail ──────────────────────────────────────

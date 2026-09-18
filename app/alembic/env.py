@@ -5,9 +5,11 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.database.database import Base
+from app.database.config import settings, resolve_postgres_url
 import app.schema.models as models  # noqa: F401  – force all models to register
 
 config = context.config
+config.set_main_option("sqlalchemy.url", resolve_postgres_url(settings.effective_database_url).replace("%", "%%"))
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 

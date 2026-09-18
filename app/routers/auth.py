@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from ..database.config import settings
 from ..database.database import get_db
 from ..schema.models import AuditEvent, RevokedSession, Role, User
-from ..schemas import AccountCreate, AccountUpdate, LoginRequest, TokenResponse, UserResponse
+from ..schemas import AccountCreate, AccountUpdate, LoginRequest, PortalLoginRequest, PortalRegisterRequest, TokenResponse, UserResponse
 
 router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
 
@@ -137,23 +137,35 @@ FINANCE_ROLES = (
     Role.FINANCE_ADMIN,
     Role.FINANCE_MANAGER,
     Role.ANALYST,
-    Role.VIEWER,
 )
 FinanceUser = Annotated[User, Depends(require_roles(*FINANCE_ROLES))]
-DecisionUser = Annotated[User, Depends(require_roles(Role.ADMIN, Role.FINANCE_ADMIN))]
+RegularUser = Annotated[User, Depends(require_roles(Role.REGULAR_USER))]
+DecisionUser = Annotated[User, Depends(require_roles(Role.ADMIN, Role.FINANCE_ADMIN, Role.FINANCE_MANAGER, Role.ANALYST))]
 ManagerUser = Annotated[User, Depends(require_roles(Role.ADMIN, Role.FINANCE_MANAGER))]
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
 def register(payload: AccountCreate, db: Session = Depends(get_db)):
+    return _register(payload, "regular", db)
+
+
+def _register(payload: AccountCreate, portal: str, db: Session):
     email = str(payload.email).lower()
-    if db.query(select(User).where(User.email == email)):
+    if db.scalar(select(User).where(User.email == email)):
         raise HTTPException(status_code=409, detail="An account with that email already exists")
+    requested_role = payload.role or Role.REGULAR_USER.value
+    allowed_roles = (
+        {Role.REGULAR_USER.value}
+        if portal == "regular"
+        else {Role.ADMIN.value, Role.FINANCE_ADMIN.value, Role.FINANCE_MANAGER.value, Role.ANALYST.value}
+    )
+    if requested_role not in allowed_roles:
+        raise HTTPException(status_code=422, detail="Unsupported account role")
     user = User(
         email=email,
         full_name=payload.full_name.strip(),
         password_hash=hash_password(payload.password),
-        role=Role.ANALYST.value,
+        role=requested_role,
     )
     db.add(user)
     db.flush()
@@ -168,11 +180,24 @@ def register(payload: AccountCreate, db: Session = Depends(get_db)):
     )
 
 
+@router.post("/portal-register", response_model=TokenResponse, status_code=201)
+def portal_register(payload: PortalRegisterRequest, db: Session = Depends(get_db)):
+    return _register(payload, payload.portal, db)
+
+
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    return _login(payload, None, db)
+
+
+def _login(payload: LoginRequest, portal: str | None, db: Session):
     user = db.scalar(select(User).where(User.email == str(payload.email).lower()))
     if not user or not verify_password(payload.password, user.password_hash) or not user.is_active:
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    if portal == "regular" and user.role != Role.REGULAR_USER.value:
+        raise HTTPException(status_code=403, detail="Use the admin portal for this account")
+    if portal == "admin" and user.role == Role.REGULAR_USER.value:
+        raise HTTPException(status_code=403, detail="Regular users must use the regular portal")
     audit(db, user.id, "SIGNED_IN", f"user:{user.id}")
     db.commit()
     token, expires = issue_token(user)
@@ -181,6 +206,11 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         expires_in=int((expires - datetime.now(timezone.utc)).total_seconds()),
         user=user,
     )
+
+
+@router.post("/portal-login", response_model=TokenResponse)
+def portal_login(payload: PortalLoginRequest, db: Session = Depends(get_db)):
+    return _login(payload, payload.portal, db)
 
 
 @router.post("/logout", status_code=204)

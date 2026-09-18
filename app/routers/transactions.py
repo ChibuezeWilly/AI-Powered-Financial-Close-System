@@ -13,21 +13,58 @@ from ..schema.models import AccountingPeriod, Approval, AuditEvent, FinancialTra
 from .auth import DecisionUser, FinanceUser, ManagerUser, audit
 from ..schemas import DecisionRequest, ManagerDecisionRequest
 from ..services.reconciliation_graph import run_human_decision
-from ..services.ai_investigation import investigate_transaction
+from ..services.investigation_queue import enqueue_investigation
 from ..services.workflow import resolve_approved_adjustment, transition
 
 router = APIRouter(prefix="/api/v1", tags=["financial-close"])
+from sqlalchemy import or_, select
+
 DOCUMENT_ROOT = Path(__file__).resolve().parents[2] / "documents" / "invoices"
 
 
 def tx_payload(tx: FinancialTransaction) -> dict:
+    computed_status = tx.status
+    if hasattr(tx, "investigations") and tx.investigations:
+        latest_inv = tx.investigations[-1]
+        if latest_inv.status in {"PENDING", "RUNNING"}:
+            computed_status = "INVESTIGATING"
+    elif tx.status == "INVESTIGATING":
+        computed_status = "INVESTIGATING"
+
+    user_data = None
+    if tx.user:
+        user_data = {
+            "id": tx.user.id,
+            "full_name": tx.user.full_name,
+            "email": tx.user.email,
+            "role": tx.user.role,
+        }
+
+    invoice_data = None
+    if tx.invoice:
+        invoice_data = {
+            "id": tx.invoice.id,
+            "subtotal": float(tx.invoice.subtotal),
+            "tax": float(tx.invoice.tax),
+            "discount": float(tx.invoice.discount),
+            "total": float(tx.invoice.total),
+            "balance": float(tx.invoice.balance),
+            "status": tx.invoice.status,
+            "due_date": tx.invoice.due_date,
+        }
+
     return {
         "id": tx.id,
         "period": tx.period,
         "date": tx.transaction_date,
         "customer": tx.customer,
+        "customer_id": tx.customer_id,
+        "user_id": tx.user_id,
+        "user": user_data,
         "invoice_id": tx.invoice_id,
+        "invoice": invoice_data,
         "payment_id": tx.payment_id,
+        "bank_transaction_id": tx.bank_transaction_id,
         "account": tx.account,
         "currency": tx.currency,
         "expected_amount": float(tx.expected_amount),
@@ -35,7 +72,7 @@ def tx_payload(tx: FinancialTransaction) -> dict:
         "difference": float(tx.difference),
         "discrepancy_type": tx.discrepancy_type,
         "severity": tx.severity,
-        "status": tx.status,
+        "status": computed_status,
         "root_cause": tx.root_cause,
         "recommendation": tx.recommendation,
         "confidence": float(tx.confidence) if tx.confidence is not None else None,
@@ -43,14 +80,21 @@ def tx_payload(tx: FinancialTransaction) -> dict:
 
 
 @router.get("/transactions")
-def transactions(period: str, _: FinanceUser, db: Session = Depends(get_db)):
+def transactions(period: str = "2026-09", q: str | None = None, _: FinanceUser = None, db: Session = Depends(get_db)):
+    query = select(FinancialTransaction).where(FinancialTransaction.period == period)
+    if q:
+        pat = f"%{q}%"
+        query = query.where(
+            or_(
+                FinancialTransaction.customer.ilike(pat),
+                FinancialTransaction.invoice_id.ilike(pat),
+                FinancialTransaction.id.ilike(pat),
+                FinancialTransaction.account.ilike(pat),
+            )
+        )
     return [
         tx_payload(tx)
-        for tx in db.scalars(
-            select(FinancialTransaction)
-            .where(FinancialTransaction.period == period)
-            .order_by(FinancialTransaction.transaction_date.desc())
-        )
+        for tx in db.scalars(query.order_by(FinancialTransaction.transaction_date.desc()))
     ]
 
 
@@ -59,16 +103,43 @@ def transaction_detail(transaction_id: str, _: FinanceUser, db: Session = Depend
     tx = db.get(FinancialTransaction, transaction_id)
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    inv = db.scalar(select(Investigation).where(Investigation.transaction_id == transaction_id))
+    inv = db.scalar(select(Investigation).where(Investigation.transaction_id == transaction_id).order_by(Investigation.created_at.desc()))
     journal = db.scalar(select(JournalEntry).where(JournalEntry.transaction_id == transaction_id))
+    approvals = db.scalars(select(Approval).where(Approval.transaction_id == transaction_id).order_by(Approval.created_at)).all()
+    ledger_entries = tx.ledger_entries if hasattr(tx, "ledger_entries") and tx.ledger_entries else []
+
+    nodes = [
+        {"id": "tx", "label": tx.id, "type": "transaction", "amount": float(tx.actual_amount)},
+        {"id": "customer", "label": tx.customer, "type": "customer"},
+        {"id": "account", "label": tx.account, "type": "account"},
+    ]
+    edges = [
+        {"source": "customer", "target": "tx", "label": "INITIATED"},
+        {"source": "tx", "target": "account", "label": "POSTED_TO"},
+    ]
+    if tx.invoice_id:
+        nodes.append({"id": "invoice", "label": tx.invoice_id, "type": "invoice", "amount": float(tx.expected_amount)})
+        edges.append({"source": "tx", "target": "invoice", "label": "FOR_INVOICE"})
+    if tx.payment_id:
+        nodes.append({"id": "payment", "label": tx.payment_id, "type": "payment"})
+        edges.append({"source": "tx", "target": "payment", "label": "MATCHED_PAYMENT"})
+    if tx.discrepancy_type:
+        nodes.append({"id": "policy", "label": "FIN-042", "type": "policy", "name": "Discount Policy"})
+        edges.append({"source": "tx", "target": "policy", "label": "GOVERNED_BY"})
+
     return {
         **tx_payload(tx),
         "investigation": (
             {
                 "id": inv.id,
                 "status": inv.status,
-                "evidence": json.loads(inv.evidence),
-                "timeline": json.loads(inv.timeline),
+                "evidence": json.loads(inv.evidence or "[]"),
+                "timeline": json.loads(inv.timeline or "[]"),
+                "root_cause": inv.root_cause,
+                "recommendation": inv.recommendation,
+                "confidence": float(inv.confidence) if inv.confidence is not None else None,
+                "ai_model": inv.ai_model,
+                "completed_at": inv.completed_at,
             }
             if inv
             else None
@@ -84,37 +155,63 @@ def transaction_detail(transaction_id: str, _: FinanceUser, db: Session = Depend
             if journal
             else None
         ),
-        "evidence_graph": [
-            "Customer",
-            tx.customer,
-            "Invoice",
-            tx.invoice_id,
-            "Payment",
-            tx.payment_id,
-            "Ledger",
-            "Accounts Receivable",
-            "Policy",
-            "FIN-042",
-            "Approval",
+        "ledger_entries": [
+            {
+                "id": le.id,
+                "account_code": le.account_code,
+                "account_name": le.account_name,
+                "debit": float(le.debit),
+                "credit": float(le.credit),
+                "description": le.description,
+                "reference": le.reference,
+                "posted_date": le.posted_date,
+            }
+            for le in ledger_entries
         ],
+        "approvals": [
+            {
+                "id": a.id,
+                "decision": a.decision,
+                "reason": a.reason,
+                "decided_by": a.decided_by,
+                "created_at": a.created_at,
+            }
+            for a in approvals
+        ],
+        "evidence_graph": {
+            "nodes": nodes,
+            "edges": edges,
+        },
     }
 
 
-@router.post("/transactions/{transaction_id}/investigate")
-def investigate(transaction_id: str, user: DecisionUser, db: Session = Depends(get_db)):
-    """Run AI analysis only; approvals and accounting actions remain separate."""
+@router.post("/transactions/{transaction_id}/investigate", status_code=202)
+async def investigate(transaction_id: str, user: DecisionUser, db: Session = Depends(get_db)):
+    """Queue AI analysis; approvals and accounting actions remain separate."""
     tx = db.get(FinancialTransaction, transaction_id)
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    try:
-        result = investigate_transaction(db, tx)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail="AI investigation failed; no financial state was changed") from exc
-    audit(db, user.id, "AI_INVESTIGATION_COMPLETED", tx.id)
+    tx.status = "INVESTIGATING"
+    investigation = db.scalar(select(Investigation).where(Investigation.transaction_id == tx.id))
+    if not investigation:
+        investigation = Investigation(
+            id=f"INVG-{tx.id}",
+            transaction_id=tx.id,
+            status="PENDING",
+            evidence="[]",
+            timeline="[]",
+        )
+        db.add(investigation)
+    investigation.status = "PENDING"
+    audit(db, user.id, "AI_INVESTIGATION_QUEUED", tx.id)
     db.commit()
-    return result
+    try:
+        job_id = await enqueue_investigation(tx.id)
+    except Exception as exc:
+        investigation.status = "FAILED"
+        db.commit()
+        raise HTTPException(status_code=503, detail="Investigation queue is unavailable") from exc
+    return {"transaction_id": tx.id, "status": "INVESTIGATING", "job_id": job_id}
 
 
 @router.post("/transactions/{transaction_id}/decision")
@@ -146,6 +243,8 @@ def decide(
         )
     )
     inv = db.scalar(select(Investigation).where(Investigation.transaction_id == tx.id))
+    if not inv or inv.status != "COMPLETED":
+        raise HTTPException(status_code=409, detail="Complete the AI investigation before submitting a financial decision")
     result = run_human_decision(
         db=db,
         transaction=tx,
@@ -170,6 +269,9 @@ def manager_decide(
     tx = db.get(FinancialTransaction, transaction_id)
     if not tx or tx.status != "AWAITING_MANAGER_APPROVAL":
         raise HTTPException(status_code=409, detail="No manager decision is pending")
+    inv = db.scalar(select(Investigation).where(Investigation.transaction_id == tx.id))
+    if not inv or inv.status != "COMPLETED":
+        raise HTTPException(status_code=409, detail="Complete the AI investigation before submitting a financial decision")
     accounting_period = db.scalar(select(AccountingPeriod).where(AccountingPeriod.code == tx.period))
     if not accounting_period or accounting_period.status != "OPEN":
         raise HTTPException(status_code=409, detail="Financial decisions are blocked for a closed accounting period")

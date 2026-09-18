@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -34,6 +35,17 @@ def investigate_transaction(db: Session, transaction: FinancialTransaction) -> d
         raise RuntimeError("AI investigation is not configured. Set LLM_BASE_URL and LLM_API_KEY for a Qwen-compatible endpoint.")
 
     investigation = db.scalar(select(Investigation).where(Investigation.transaction_id == transaction.id))
+    if not investigation:
+        investigation = Investigation(
+            id=f"INVG-{transaction.id}",
+            transaction_id=transaction.id,
+            status="RUNNING",
+            evidence="[]",
+            timeline="[]",
+        )
+        db.add(investigation)
+    else:
+        investigation.status = "RUNNING"
     policies = db.scalars(select(Policy).where(Policy.status == "active")).all()
     result = run_investigation(
         InvestigationInput(
@@ -57,14 +69,17 @@ def investigate_transaction(db: Session, transaction: FinancialTransaction) -> d
     transaction.root_cause = root_cause.cause
     transaction.recommendation = report.recommendation
     transaction.confidence = report.confidence
-    if investigation:
-        investigation.root_cause = root_cause.cause
-        investigation.recommendation = report.recommendation
-        investigation.confidence = report.confidence
-        investigation.ai_model = result["agent_models"]["root_cause"]
-        timeline = json.loads(investigation.timeline or "[]")
-        timeline.append("AI LangGraph investigation completed; financial action remains human-controlled.")
-        investigation.timeline = json.dumps(timeline)
+    investigation.root_cause = root_cause.cause
+    investigation.recommendation = report.recommendation
+    investigation.confidence = report.confidence
+    investigation.ai_model = result["agent_models"]["root_cause"]
+    investigation.status = "COMPLETED"
+    investigation.completed_at = datetime.now(timezone.utc)
+    timeline = json.loads(investigation.timeline or "[]")
+    timeline.append("AI LangGraph investigation completed; financial action remains human-controlled.")
+    investigation.timeline = json.dumps(timeline)
+    if transaction.difference != 0 and transaction.status in {"DISCREPANCY_DETECTED", "INVESTIGATING"}:
+        transaction.status = "AWAITING_HUMAN_APPROVAL"
 
     return {
         "transaction_id": transaction.id,

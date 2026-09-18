@@ -10,6 +10,7 @@ from ..database.database import get_db
 from ..schema.models import AccountingPeriod, FinancialTransaction, MonthlyReport, Notification
 from .auth import DecisionUser, FinanceUser, audit
 from ..services.ingestion import import_invoices, reconcile_period
+from ..services.rag.ingestion import ingest_all_documents
 
 router = APIRouter(prefix="/api/v1", tags=["financial-close"])
 
@@ -88,6 +89,15 @@ def ingest_invoices(period: str | None, user: DecisionUser, db: Session = Depend
     """Administrative ingestion of the bundled source records into application state."""
     result = import_invoices(db, period)
     audit(db, user.id, "INVOICES_INGESTED", period or "all-periods")
+    db.commit()
+    return result
+
+
+@router.post("/knowledge/ingest")
+def ingest_knowledge(user: DecisionUser, db: Session = Depends(get_db)):
+    """Synchronize bundled knowledge documents into all configured RAG stores."""
+    result = ingest_all_documents(db)
+    audit(db, user.id, "KNOWLEDGE_BASE_INGESTED", "documents-and-knowledge")
     db.commit()
     return result
 

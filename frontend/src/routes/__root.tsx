@@ -29,7 +29,28 @@ export const Route = createRootRoute({
     ],
   }),
   component: RootComponent,
+  notFoundComponent: NotFoundComponent,
 });
+
+function NotFoundComponent() {
+  return (
+    <main className="grid min-h-screen place-items-center bg-background px-5 text-center text-foreground">
+      <div>
+        <p className="text-xs font-bold tracking-[0.18em] text-primary">TALLY FLOW</p>
+        <h1 className="mt-3 text-3xl font-semibold">Page not found</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          The page you requested does not exist.
+        </p>
+        <a
+          href="/"
+          className="mt-6 inline-flex rounded-md bg-primary px-4 py-2.5 text-sm font-bold text-[#071a2b] hover:bg-[#4ADE80]"
+        >
+          Return home
+        </a>
+      </div>
+    </main>
+  );
+}
 
 function RootComponent() {
   return (
