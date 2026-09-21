@@ -22,7 +22,7 @@ function AdminAuthPage() {
         : {}),
     };
     const response = await fetch(
-      `${import.meta.env["VITE_API_URL"] || "http://localhost:8000"}/api/v1/auth/portal-${mode === "login" ? "login" : "register"}`,
+      `${import.meta.env["VITE_API_URL"] || "http://localhost:8000"}/api/v1/auth/admin/${mode === "login" ? "login" : "register"}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
