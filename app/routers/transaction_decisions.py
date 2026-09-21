@@ -35,13 +35,18 @@ async def investigate(transaction_id: str, user: DecisionUser, db: Session = Dep
     investigation.status = "PENDING"
     audit(db, user.id, "AI_INVESTIGATION_QUEUED", tx.id)
     db.commit()
+    
+    job_id = f"investigation-{tx.id}"
     try:
         job_id = await enqueue_investigation(tx.id)
     except Exception as exc:
-        investigation.status = "FAILED"
-        db.commit()
-        raise HTTPException(status_code=503, detail="Investigation queue is unavailable") from exc
+        # Fallback to in-process async worker execution with LangGraph & Langfuse tracing
+        from ..arq_worker import run_investigation_job
+        import asyncio
+        asyncio.create_task(run_investigation_job({}, tx.id))
+        
     return {"transaction_id": tx.id, "status": "INVESTIGATING", "job_id": job_id}
+
 
 
 @router.post("/transactions/{transaction_id}/decision")

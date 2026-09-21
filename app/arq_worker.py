@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from typing import Any
+
 
 try:
     from arq.connections import RedisSettings
@@ -34,6 +36,15 @@ def redis_settings() -> RedisSettings | None:
 @observe_arq_job(job_name="financial_investigation_job")
 async def run_investigation_job(ctx: dict, transaction_id: str) -> dict:
     """Run one investigation in the worker and persist its result."""
+    transaction_thread_id = f"transaction_thread_{transaction_id}"
+    
+    langfuse_handler = None
+    try:
+        from langfuse.langchain import CallbackHandler
+        langfuse_handler = CallbackHandler()
+    except Exception as exc:
+        logger.debug("Langfuse CallbackHandler not initialized: %s", exc)
+
     def execute() -> dict:
         with SessionLocal() as db:
             transaction = db.get(FinancialTransaction, transaction_id)
@@ -47,18 +58,30 @@ async def run_investigation_job(ctx: dict, transaction_id: str) -> dict:
                     transaction_id=transaction_id,
                     status="RUNNING",
                     evidence="[]",
-                    timeline=json.dumps(["Background ARQ worker started LangGraph investigation pipeline."]),
+                    timeline=json.dumps([f"Background ARQ worker started LangGraph investigation pipeline (Thread: {transaction_thread_id})."]),
                 )
                 db.add(investigation)
             else:
                 investigation.status = "RUNNING"
                 timeline = json.loads(investigation.timeline or "[]")
-                timeline.append("Background ARQ worker picked up job; investigation running.")
+                timeline.append(f"Background ARQ worker picked up job; investigation running (Thread: {transaction_thread_id}).")
                 investigation.timeline = json.dumps(timeline)
             db.commit()
 
+            config: dict[str, Any] = {
+                "configurable": {"thread_id": transaction_thread_id},
+                "metadata": {
+                    "langfuse_session_id": transaction_thread_id,
+                    "langfuse_user_id": str(transaction.customer or transaction.customer_id or "system"),
+                    "langfuse_tags": ["financial-investigation", "reconciliation", "arq-worker"],
+                    "transaction_id": str(transaction_id),
+                },
+            }
+            if langfuse_handler:
+                config["callbacks"] = [langfuse_handler]
+
             try:
-                result = investigate_transaction(db, transaction)
+                result = investigate_transaction(db, transaction, config=config)
                 db.commit()
                 return result
             except Exception as exc:
@@ -72,7 +95,21 @@ async def run_investigation_job(ctx: dict, transaction_id: str) -> dict:
                     db.commit()
                 raise
 
-    return await asyncio.to_thread(execute)
+    try:
+        return await asyncio.to_thread(execute)
+    finally:
+        if langfuse_handler:
+            try:
+                if hasattr(langfuse_handler, "flush"):
+                    langfuse_handler.flush()
+                elif hasattr(langfuse_handler, "client") and hasattr(
+                    langfuse_handler.client,
+                    "flush",
+                ):
+                    langfuse_handler.client.flush()
+            except Exception as exc:
+                logger.debug("Langfuse flush note: %s", exc)
+
 
 
 async def startup(ctx: dict) -> None:

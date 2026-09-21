@@ -20,9 +20,15 @@ app = FastAPI(
 )
 
 
+@app.get("/", tags=["system"])
+def health_check() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 @app.get("/health", tags=["system"])
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "tallyflow-api"}
+
 
 
 app.add_middleware(

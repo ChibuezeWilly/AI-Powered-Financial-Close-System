@@ -60,7 +60,15 @@ export type AccountRecord = {
   is_active: boolean;
   transaction_count: number;
   total_balance: number;
+  discrepancies_count?: number;
+  total_variance?: number;
+  has_discrepancies?: boolean;
+  customer_tier?: string;
+  payment_terms?: string;
+  credit_limit?: number;
+  contact_email?: string;
 };
+
 
 export const formatCurrency = (val: number, cur = "USD") =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: cur, maximumFractionDigits: 2 }).format(val);

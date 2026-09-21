@@ -35,7 +35,11 @@ def _evidence_for(investigation: Investigation | None) -> list[Evidence]:
     ]
 
 
-def investigate_transaction(db: Session, transaction: FinancialTransaction) -> dict:
+def investigate_transaction(
+    db: Session,
+    transaction: FinancialTransaction,
+    config: dict | None = None,
+) -> dict:
     """Analyze a case with LangGraph; it never posts or approves financial actions."""
     if not is_model_runner_configured():
         raise RuntimeError("AI investigation is not configured. Set LLM_BASE_URL and LLM_API_KEY for a Qwen-compatible endpoint.")
@@ -77,8 +81,10 @@ def investigate_transaction(db: Session, transaction: FinancialTransaction) -> d
             },
             retrieved_policies=[{"policy_id": policy.policy_id, "title": policy.title, "content": policy.content} for policy in policies],
             evidence=_evidence_for(investigation),
-        )
+        ),
+        config=config,
     )
+
 
     report = result["report"]
     root_cause = result["root_cause"]

@@ -19,12 +19,14 @@ router.include_router(detail_router)
 
 @router.get("/transactions")
 def transactions(
-    period: str = "2026-09",
+    period: str | None = None,
     q: str | None = None,
     _: FinanceUser = None,
     db: Session = Depends(get_db),
 ):
-    query = select(FinancialTransaction).where(FinancialTransaction.period == period)
+    query = select(FinancialTransaction)
+    if period and period.upper() != "ALL":
+        query = query.where(FinancialTransaction.period == period)
     if q:
         pat = f"%{q}%"
         query = query.where(
@@ -39,6 +41,7 @@ def transactions(
         tx_payload(tx)
         for tx in db.scalars(query.order_by(FinancialTransaction.transaction_date.desc()))
     ]
+
 
 
 __all__ = ["router", "transactions", "tx_payload"]

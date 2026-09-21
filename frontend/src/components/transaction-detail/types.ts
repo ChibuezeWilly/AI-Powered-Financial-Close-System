@@ -41,6 +41,28 @@ export type GraphEdge = {
   label: string;
 };
 
+export type RetrievedDocument3DBItem = {
+  id: string;
+  source: string;
+  source_label: string;
+  title: string;
+  excerpt: string;
+  table?: string;
+  cypher_query?: string;
+  similarity?: number;
+  namespace?: string;
+  case_id?: string;
+  resolution?: string;
+  relationships?: string[];
+  data?: Record<string, any>;
+};
+
+export type RetrievedDocuments3DB = {
+  postgres?: RetrievedDocument3DBItem[];
+  pinecone?: RetrievedDocument3DBItem[];
+  neo4j?: RetrievedDocument3DBItem[];
+};
+
 export type TransactionDetail = {
   id: string;
   period: string;
@@ -92,7 +114,9 @@ export type TransactionDetail = {
     edges: GraphEdge[];
   };
   pinecone_precedents?: PineconePrecedentItem[];
+  retrieved_documents_3db?: RetrievedDocuments3DB;
 };
+
 
 export type AuditTrail = {
   approvals: Array<{ decision: string; reason: string; decided_by: number; created_at: string }>;

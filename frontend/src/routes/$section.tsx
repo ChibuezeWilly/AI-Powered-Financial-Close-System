@@ -48,7 +48,8 @@ function SectionRoute() {
   const [accounts, setAccounts] = useState<AccountRecord[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState("2026-09");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedUserTx, setSelectedUserTx] = useState<{ user: any; transactions: TransactionRecord[] } | null>(null);
+  const [selectedUserTx, setSelectedUserTx] = useState<any | null>(null);
+
   const [docPreview, setDocPreview] = useState<{ title: string; content: string } | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -142,23 +143,20 @@ function SectionRoute() {
 
   const viewAccountTransactions = async (accountId: string) => {
     try {
-      const data = await apiGet<{ account: any; transactions: TransactionRecord[] }>(
-        `/api/v1/workspace/accounts/${accountId}/transactions`
-      );
-      setSelectedUserTx({
-        user: {
-          id: data.account.id,
-          full_name: `${data.account.code} - ${data.account.name}`,
-          email: `${data.account.account_type} (${data.account.normal_balance})`,
-          role: data.account.account_type.toUpperCase(),
-          total_balance: data.account.total_balance,
-        },
-        transactions: data.transactions,
-      });
+      const data = await apiGet<{
+        account: any;
+        customer: any;
+        transactions: TransactionRecord[];
+        documents: any[];
+        ledger_entries: any[];
+        summary: any;
+      }>(`/api/v1/workspace/accounts/${accountId}/transactions`);
+      setSelectedUserTx(data);
     } catch (err) {
       toast.error("Failed to load account transactions");
     }
   };
+
 
   const previewDocument = async (doc: DocumentRecord) => {
     if (doc.filename.toLowerCase().startsWith("inv-")) {
@@ -318,61 +316,189 @@ function SectionRoute() {
         </main>
       </div>
 
-      {/* User Transactions Modal */}
+      {/* Rich Account Review & Detailed Records Modal */}
       {selectedUserTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-3xl rounded-2xl border border-border bg-[#0d2638] p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border pb-4">
-              <div>
-                <h3 className="text-base font-bold text-white">
-                  Transactions for {selectedUserTx.user.full_name} ({selectedUserTx.user.email})
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Role: <span className="font-semibold text-primary">{selectedUserTx.user.role}</span>
-                </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-4xl rounded-2xl border border-border bg-[#0d2638] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Modal Header & Customer Profile */}
+            <div className="border-b border-border bg-[#0a2033] p-6 space-y-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-md border border-primary/40 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-bold text-primary">
+                      ACCOUNT {selectedUserTx.account?.code || selectedUserTx.user?.id}
+                    </span>
+                    <span className="rounded-md border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-purple-300">
+                      {selectedUserTx.customer?.customer_tier || "Enterprise Tier"}
+                    </span>
+                    <span className="rounded-md border border-border bg-[#071a2b] px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                      Terms: {selectedUserTx.customer?.payment_terms || "NET30"}
+                    </span>
+                  </div>
+                  <h3 className="mt-1.5 text-lg font-bold text-white">
+                    {selectedUserTx.account?.name || selectedUserTx.user?.full_name}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Customer: <span className="font-semibold text-slate-200">{selectedUserTx.customer?.legal_name || selectedUserTx.customer?.name || "Corporate Customer"}</span> · Email: <span className="text-primary">{selectedUserTx.customer?.contact_email || selectedUserTx.user?.email}</span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedUserTx(null)}
+                  className="rounded-xl border border-border bg-[#071a2b] p-2 text-muted-foreground hover:border-primary hover:text-white transition"
+                  title="Close modal"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setSelectedUserTx(null)}
-                className="rounded-lg p-1 text-muted-foreground hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
+
+              {/* KPI Strip */}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-xl border border-border bg-[#071a2b] p-3">
+                  <div className="text-[10px] uppercase font-bold text-muted-foreground">Total Money Spent</div>
+                  <div className="mt-0.5 font-mono text-sm font-bold text-emerald-400">
+                    {formatCurrency(selectedUserTx.customer?.total_spent ?? selectedUserTx.user?.total_balance ?? 0)}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-border bg-[#071a2b] p-3">
+                  <div className="text-[10px] uppercase font-bold text-muted-foreground">Credit Limit</div>
+                  <div className="mt-0.5 font-mono text-sm font-bold text-white">
+                    {formatCurrency(selectedUserTx.customer?.credit_limit ?? 50000)}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-border bg-[#071a2b] p-3">
+                  <div className="text-[10px] uppercase font-bold text-muted-foreground">Transactions</div>
+                  <div className="mt-0.5 font-mono text-sm font-bold text-white">
+                    {selectedUserTx.transactions?.length ?? 0} Records
+                  </div>
+                </div>
+                <div className="rounded-xl border border-border bg-[#071a2b] p-3">
+                  <div className="text-[10px] uppercase font-bold text-muted-foreground">Discrepancies</div>
+                  <div className="mt-0.5 font-mono text-sm font-bold text-rose-400">
+                    {selectedUserTx.summary?.discrepancies_count ?? selectedUserTx.transactions?.filter(t => t.difference !== 0).length ?? 0} ({formatCurrency(selectedUserTx.summary?.total_variance ?? 0)})
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-4 max-h-96 overflow-y-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-border text-muted-foreground">
-                    <th className="py-2">Date</th>
-                    <th className="py-2">ID</th>
-                    <th className="py-2">Customer</th>
-                    <th className="py-2 text-right">Amount</th>
-                    <th className="py-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/40">
-                  {selectedUserTx.transactions.map((tx) => (
-                    <tr
-                      key={tx.id}
-                      onClick={() => {
-                        setSelectedUserTx(null);
-                        navigate({ to: "/transactions/$transactionId", params: { transactionId: tx.id } });
-                      }}
-                      className="cursor-pointer hover:bg-white/5"
-                    >
-                      <td className="py-2.5 text-muted-foreground">{tx.date}</td>
-                      <td className="py-2.5 font-mono text-primary font-bold">{tx.id}</td>
-                      <td className="py-2.5 text-white">{tx.customer}</td>
-                      <td className="py-2.5 text-right font-medium text-emerald-400">{formatCurrency(tx.actual_amount)}</td>
-                      <td className="py-2.5">
-                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${getStatusBadge(tx.status)}`}>
-                          {tx.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* Modal Body: Transaction & Ledger Explorer */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* 1. Transactions List */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Assigned Transactions ({selectedUserTx.transactions?.length || 0})
+                  </h4>
+                  <span className="text-[11px] text-primary">Click any row to open and investigate</span>
+                </div>
+                <div className="overflow-hidden rounded-xl border border-border bg-[#071a2b]">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-border/80 text-muted-foreground bg-[#0a2033]">
+                        <th className="px-4 py-2.5">Date</th>
+                        <th className="px-4 py-2.5">Transaction ID</th>
+                        <th className="px-4 py-2.5">Customer / Invoice</th>
+                        <th className="px-4 py-2.5 text-right">Actual Amount</th>
+                        <th className="px-4 py-2.5 text-right">Difference</th>
+                        <th className="px-4 py-2.5">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40">
+                      {selectedUserTx.transactions?.map((tx) => (
+                        <tr
+                          key={tx.id}
+                          onClick={() => {
+                            setSelectedUserTx(null);
+                            navigate({ to: "/transactions/$transactionId", params: { transactionId: tx.id } });
+                          }}
+                          className="cursor-pointer transition hover:bg-white/5"
+                        >
+                          <td className="px-4 py-2.5 font-mono text-muted-foreground">{tx.date}</td>
+                          <td className="px-4 py-2.5 font-mono font-bold text-primary">{tx.id}</td>
+                          <td className="px-4 py-2.5 text-white">
+                            <div>{tx.customer}</div>
+                            {tx.invoice_id && <div className="font-mono text-[10px] text-muted-foreground">{tx.invoice_id}</div>}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-medium text-emerald-400 font-mono">
+                            {formatCurrency(tx.actual_amount)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-mono">
+                            <span className={tx.difference !== 0 ? "font-bold text-rose-400" : "text-muted-foreground"}>
+                              {tx.difference !== 0 ? formatCurrency(tx.difference) : "$0.00"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${getStatusBadge(tx.status)}`}>
+                              {tx.status.replaceAll("_", " ")}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 2. General Ledger Entries */}
+              {selectedUserTx.ledger_entries && selectedUserTx.ledger_entries.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    General Ledger Journals ({selectedUserTx.ledger_entries.length} Postings)
+                  </h4>
+                  <div className="overflow-hidden rounded-xl border border-border bg-[#071a2b]">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-border/80 text-muted-foreground bg-[#0a2033]">
+                          <th className="px-4 py-2">Posted Date</th>
+                          <th className="px-4 py-2">Account Code</th>
+                          <th className="px-4 py-2">Description / Ref</th>
+                          <th className="px-4 py-2 text-right">Debit</th>
+                          <th className="px-4 py-2 text-right">Credit</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/40">
+                        {selectedUserTx.ledger_entries.map((le: any) => (
+                          <tr key={le.id}>
+                            <td className="px-4 py-2 font-mono text-muted-foreground">{le.posted_date}</td>
+                            <td className="px-4 py-2 font-mono text-primary">{le.account_code}</td>
+                            <td className="px-4 py-2 text-slate-200">
+                              <div>{le.description}</div>
+                              <div className="font-mono text-[10px] text-muted-foreground">Ref: {le.reference}</div>
+                            </td>
+                            <td className="px-4 py-2 text-right font-mono text-white">{le.debit > 0 ? formatCurrency(le.debit) : "—"}</td>
+                            <td className="px-4 py-2 text-right font-mono text-white">{le.credit > 0 ? formatCurrency(le.credit) : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Associated Documents */}
+              {selectedUserTx.documents && selectedUserTx.documents.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Associated Documents ({selectedUserTx.documents.length})
+                  </h4>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {selectedUserTx.documents.map((doc: any) => (
+                      <div
+                        key={doc.id}
+                        onClick={() => previewDocument(doc)}
+                        className="cursor-pointer rounded-xl border border-border bg-[#071a2b] p-3 transition hover:border-primary/50"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-white text-xs">{doc.filename}</span>
+                          <span className="rounded bg-white/10 px-2 py-0.5 text-[9px] uppercase font-bold text-primary">
+                            {doc.document_type}
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">{doc.file_path}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -380,20 +506,27 @@ function SectionRoute() {
 
       {/* Document Preview Modal */}
       {docPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-border bg-[#0d2638] p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-3xl rounded-2xl border border-border bg-[#0d2638] p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-border pb-4">
-              <h3 className="font-bold text-white">{docPreview.title}</h3>
-              <button onClick={() => setDocPreview(null)} className="rounded-lg p-1 text-muted-foreground hover:text-white">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">DOCUMENT INTELLIGENCE</span>
+                <h3 className="text-base font-bold text-white">{docPreview.title}</h3>
+              </div>
+              <button
+                onClick={() => setDocPreview(null)}
+                className="rounded-xl border border-border bg-[#071a2b] p-2 text-muted-foreground hover:text-white"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <pre className="mt-4 max-h-[480px] overflow-y-auto whitespace-pre-wrap rounded-xl border border-border bg-[#071a2b] p-4 text-xs font-mono text-slate-300">
+            <pre className="mt-4 max-h-[500px] overflow-y-auto whitespace-pre-wrap rounded-xl border border-border bg-[#071a2b] p-4 text-xs font-mono text-slate-200 leading-relaxed">
               {docPreview.content}
             </pre>
           </div>
         </div>
       )}
+
     </div>
   );
 }

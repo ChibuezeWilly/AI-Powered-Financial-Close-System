@@ -40,12 +40,12 @@ export function AccountsSection({
             <thead>
               <tr className="border-b border-border/60 text-muted-foreground">
                 <th className="px-5 py-3 font-semibold">Account Code</th>
-                <th className="px-5 py-3 font-semibold">Account Name</th>
+                <th className="px-5 py-3 font-semibold">Account Name & Customer</th>
+                <th className="px-5 py-3 font-semibold">Plan / Tier</th>
                 <th className="px-5 py-3 font-semibold">Account Type</th>
-                <th className="px-5 py-3 font-semibold">Normal Balance</th>
-                <th className="px-5 py-3 font-semibold">Status</th>
+                <th className="px-5 py-3 font-semibold">Discrepancy Status</th>
                 <th className="px-5 py-3 font-semibold text-right">Transactions</th>
-                <th className="px-5 py-3 font-semibold text-right">Total Balance</th>
+                <th className="px-5 py-3 font-semibold text-right">Total Money Spent</th>
                 <th className="px-5 py-3 font-semibold text-right">Action</th>
               </tr>
             </thead>
@@ -53,8 +53,17 @@ export function AccountsSection({
               {accounts.map((acct) => (
                 <tr key={acct.id} className="transition hover:bg-white/5">
                   <td className="px-5 py-3.5 font-mono text-muted-foreground">{acct.code}</td>
-                  <td className="px-5 py-3.5 font-bold text-white">{acct.name}</td>
-                  <td className="px-5 py-3.5 text-muted-foreground">{acct.account_type}</td>
+                  <td className="px-5 py-3.5">
+                    <div className="font-bold text-white">{acct.name}</div>
+                    {acct.contact_email && (
+                      <div className="text-[10px] text-muted-foreground">{acct.contact_email}</div>
+                    )}
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span className="rounded-md border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-purple-300">
+                      {acct.customer_tier || "Enterprise Plan"}
+                    </span>
+                  </td>
                   <td className="px-5 py-3.5">
                     <span
                       className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
@@ -71,26 +80,33 @@ export function AccountsSection({
                     </span>
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className="inline-flex items-center gap-1 text-emerald-400">
-                      <CheckCircle2 className="h-3 w-3" /> {acct.is_active ? "Active" : "Inactive"}
-                    </span>
+                    {acct.has_discrepancies || (acct.discrepancies_count && acct.discrepancies_count > 0) ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-300">
+                        {acct.discrepancies_count} Discrepancies ({formatCurrency(acct.total_variance || 0)})
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300">
+                        <CheckCircle2 className="h-3 w-3" /> Fully Reconciled
+                      </span>
+                    )}
                   </td>
                   <td className="px-5 py-3.5 text-right font-medium text-white">{acct.transaction_count}</td>
-                  <td className="px-5 py-3.5 text-right font-bold text-emerald-400">
+                  <td className="px-5 py-3.5 text-right font-bold text-emerald-400 font-mono">
                     {formatCurrency(acct.total_balance)}
                   </td>
                   <td className="px-5 py-3.5 text-right">
                     <button
                       onClick={() => viewAccountTransactions(acct.id)}
-                      className="inline-flex rounded-lg border border-primary/30 bg-primary/10 px-3 py-1 font-semibold text-primary hover:bg-primary hover:text-[#071a2b]"
+                      className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 font-semibold text-xs text-primary hover:bg-primary hover:text-[#071a2b] transition shadow"
                     >
-                      View Records
+                      Review Account →
                     </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+
         </div>
       </div>
     </div>

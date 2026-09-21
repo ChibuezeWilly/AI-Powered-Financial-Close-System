@@ -21,8 +21,7 @@ export function TransactionHeader({
     !investigating &&
     transaction.status !== "INVESTIGATING" &&
     transaction.status !== "RECONCILED" &&
-    transaction.status !== "RESOLVED" &&
-    (!transaction.investigation || transaction.investigation.status === "PENDING" || transaction.investigation.status === "FAILED");
+    transaction.status !== "RESOLVED";
 
   const severityColor =
     transaction.severity === "CRITICAL"
@@ -72,9 +71,14 @@ export function TransactionHeader({
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-emerald-400 px-5 py-2.5 text-xs font-bold text-[#071a2b] shadow-lg shadow-primary/20 transition hover:opacity-90 disabled:opacity-50"
             >
               <Sparkles className="h-4 w-4" />
-              {investigating ? "Starting Investigation..." : "Investigate"}
+              {investigating
+                ? "Running LangGraph Workflow..."
+                : transaction.investigation?.status === "COMPLETED"
+                ? "Re-Investigate"
+                : "Investigate"}
             </button>
           )}
+
 
           <div className="rounded-xl border border-border bg-[#071a2b] px-4 py-2.5 text-right">
             <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Investigation Status</div>

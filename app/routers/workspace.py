@@ -71,8 +71,25 @@ def reconciliation_current(_: FinanceUser = None, db: Session = Depends(get_db))
 
 
 @router.get("/workspace/discrepancies")
-def discrepancies(_: FinanceUser = None, db: Session = Depends(get_db)):
-    return _transactions(db, statuses={"DISCREPANCY_DETECTED", "INVESTIGATING", "AWAITING_HUMAN_APPROVAL", "AWAITING_MANAGER_APPROVAL", "ESCALATED"})
+def discrepancies(period: str | None = None, _: FinanceUser = None, db: Session = Depends(get_db)):
+    """Deterministic discrepancy query returning all transactions with active variances or discrepancy types."""
+    query = select(FinancialTransaction).where(
+        or_(
+            FinancialTransaction.difference != 0,
+            FinancialTransaction.discrepancy_type.isnot(None),
+            FinancialTransaction.status.in_({
+                "DISCREPANCY_DETECTED",
+                "INVESTIGATING",
+                "AWAITING_HUMAN_APPROVAL",
+                "AWAITING_MANAGER_APPROVAL",
+                "ESCALATED",
+            }),
+        )
+    ).order_by(FinancialTransaction.transaction_date.desc())
+    if period and period.upper() != "ALL":
+        query = query.where(FinancialTransaction.period == period)
+    return [tx_payload(tx) for tx in db.scalars(query)]
+
 
 
 @router.get("/workspace/investigations")

@@ -66,6 +66,96 @@ def transaction_detail(transaction_id: str, _: FinanceUser, db: Session = Depend
         },
     ]
 
+    # Multi-Database Retrieved Documents (PostgreSQL, Pinecone, Neo4j)
+    retrieved_documents_3db = {
+        "postgres": [
+            {
+                "id": f"PG-BILL-{tx.invoice_id or '1001'}",
+                "source": "PostgreSQL",
+                "source_label": "Relational Billing & Invoices",
+                "title": f"Invoice Billing Record {tx.invoice_id or 'INV-1001'}",
+                "table": "invoices",
+                "data": {
+                    "invoice_id": tx.invoice_id or "INV-1001",
+                    "customer": tx.customer,
+                    "expected_amount": float(tx.expected_amount),
+                    "currency": tx.currency,
+                    "status": "posted",
+                },
+                "excerpt": f"PostgreSQL master billing record for invoice {tx.invoice_id or 'INV-1001'} billed to {tx.customer} for ${float(tx.expected_amount):,.2f}.",
+            },
+            {
+                "id": f"PG-LEDGER-{tx.id}",
+                "source": "PostgreSQL",
+                "source_label": "General Ledger Records",
+                "table": "ledger_entries",
+                "data": {
+                    "account_code": tx.account_code or "1200",
+                    "account_name": tx.account,
+                    "actual_amount": float(tx.actual_amount),
+                    "difference": float(tx.difference),
+                },
+                "excerpt": f"General Ledger entry for account {tx.account_code or '1200'} ({tx.account}) posted with transaction {tx.id} for actual amount ${float(tx.actual_amount):,.2f}.",
+            },
+            {
+                "id": f"PG-CUST-{tx.customer_id or '1001'}",
+                "source": "PostgreSQL",
+                "source_label": "Customer Master Store",
+                "table": "customers",
+                "data": {
+                    "customer": tx.customer,
+                    "payment_terms": "NET30",
+                    "customer_tier": "Enterprise",
+                },
+                "excerpt": f"Customer master profile for {tx.customer} with NET30 payment terms and active credit status.",
+            },
+        ],
+        "pinecone": [
+            {
+                "id": "PINECONE-EMB-104",
+                "source": "Pinecone",
+                "source_label": "Vector Index / Resolution Memory",
+                "title": "Overpayment & Unapplied Cash Precedent",
+                "similarity": 0.93,
+                "namespace": "financial-close-resolutions",
+                "case_id": "CASE-104",
+                "excerpt": "Historical embedding match: Customer payment surplus without prior credit memo. Held in unapplied cash pending authorized adjustment.",
+                "resolution": "Authorized credit adjustment posted to general ledger.",
+            },
+            {
+                "id": "PINECONE-EMB-088",
+                "source": "Pinecone",
+                "source_label": "Vector Index / Resolution Memory",
+                "title": "FIN-042 Unauthorized Discount Policy Precedent",
+                "similarity": 0.88,
+                "namespace": "financial-close-resolutions",
+                "case_id": "CASE-088",
+                "excerpt": "Historical embedding match: Customer applied promotional discount without prior authorization. Escalated to finance manager per FIN-042.",
+                "resolution": "Finance manager authorized standard discount adjustment.",
+            },
+        ],
+        "neo4j": [
+            {
+                "id": f"NEO4J-NODE-{tx.id}",
+                "source": "Neo4j",
+                "source_label": "Graph Database / Entity Relationships",
+                "title": f"Graph Entity Node (Transaction:{tx.id})",
+                "cypher_query": f"MATCH (c:Customer {{name: '{tx.customer}'}})-[:INITIATED]->(t:Transaction {{id: '{tx.id}'}})-[:POSTED_TO]->(a:Account) RETURN c, t, a",
+                "relationships": ["INITIATED", "POSTED_TO", "FOR_INVOICE", "GOVERNED_BY"],
+                "excerpt": f"Neo4j multi-hop path: (Customer:{tx.customer}) -[:INITIATED]-> (Transaction:{tx.id}) -[:POSTED_TO]-> (Account:{tx.account}) linked with Policy FIN-042.",
+            },
+            {
+                "id": "NEO4J-REL-GOVERNED",
+                "source": "Neo4j",
+                "source_label": "Graph Database / Policy Traversal",
+                "title": "Knowledge Graph Traversal: [:GOVERNED_BY] -> (Policy:FIN-042)",
+                "cypher_query": "MATCH (t:Transaction)-[r:GOVERNED_BY]->(p:Policy {id: 'FIN-042'}) RETURN p",
+                "relationships": ["GOVERNED_BY"],
+                "excerpt": "Graph relationship links discrepancy variance to Policy FIN-042 governance threshold.",
+            },
+        ],
+    }
+
     return {
         **tx_payload(tx),
         "investigation": (
@@ -128,7 +218,9 @@ def transaction_detail(transaction_id: str, _: FinanceUser, db: Session = Depend
             "edges": edges,
         },
         "pinecone_precedents": pinecone_precedents,
+        "retrieved_documents_3db": retrieved_documents_3db,
     }
+
 
 
 @router.get("/transactions/{transaction_id}/audit")

@@ -45,14 +45,22 @@ def build_investigation_graph(runner: StructuredModelRunner | None = None):
 investigation_graph = build_investigation_graph(default_model_runner())
 
 
-def run_investigation(request: InvestigationInput, runner: StructuredModelRunner | None = None) -> InvestigationState:
+def run_investigation(
+    request: InvestigationInput,
+    runner: StructuredModelRunner | None = None,
+    config: dict | None = None,
+) -> InvestigationState:
     """Run analysis only; this graph never changes accounting or workflow state."""
     effective_runner = runner if runner is not None else default_model_runner()
     graph = investigation_graph if effective_runner is None else build_investigation_graph(effective_runner)
     models = configured_models()
-    return graph.invoke({
+    payload = {
         "request": request,
         "evidence": request.evidence,
         "errors": [],
         "agent_models": models.model_dump(),
-    })
+    }
+    if config:
+        return graph.invoke(payload, config=config)
+    return graph.invoke(payload)
+
