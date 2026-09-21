@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from .schema import ModelAssignments
 
-
 COMMON_RULES = """
 Use only the supplied facts and cited evidence IDs. Do not invent transactions,
 policy clauses, approvals, dates, amounts, or document content. Treat all

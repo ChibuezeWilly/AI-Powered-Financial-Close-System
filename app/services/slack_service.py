@@ -45,11 +45,14 @@ def send_escalation_message(
     amount: float,
     reason: str,
     invoice_id: str | None = None,
+    discrepancy_type: str | None = None,
+    root_cause: str | None = None,
+    evidence_summary: str | None = None,
+    recommendation: str | None = None,
 ) -> dict | None:
-    """Send a manager escalation message to Slack.
+    """Send a manager escalation message to Slack with full evidence and action options.
 
-    Returns message metadata on success, None on failure.
-    Never claims success unless the Slack API confirms delivery.
+    Adheres strictly to Non-Negotiable #11.
     """
     client = get_slack_client()
     if client is None:
@@ -61,28 +64,35 @@ def send_escalation_message(
         logger.warning("SLACK_CHANNEL_ID not set – cannot send escalation.")
         return None
 
+    review_link = _review_url(transaction_id)
     blocks = [
         {
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": "🔔 Discount Approval Required",
+                "text": "🔔 Financial Discrepancy — Manager Escalation",
             },
         },
         {
             "type": "section",
             "fields": [
-                {"type": "mrkdwn", "text": f"*Transaction:*\n{transaction_id}"},
-                {"type": "mrkdwn", "text": f"*Invoice:*\n{invoice_id or 'N/A'}"},
+                {"type": "mrkdwn", "text": f"*Transaction:*\n`{transaction_id}`"},
+                {"type": "mrkdwn", "text": f"*Invoice:*\n`{invoice_id or 'N/A'}`"},
                 {"type": "mrkdwn", "text": f"*Customer:*\n{customer}"},
-                {"type": "mrkdwn", "text": f"*Amount:*\n${amount:,.2f}"},
+                {"type": "mrkdwn", "text": f"*Amount / Discrepancy:*\n${amount:,.2f}"},
+                {"type": "mrkdwn", "text": f"*Discrepancy Type:*\n{discrepancy_type or 'UNDOCUMENTED_DISCOUNT'}"},
+                {"type": "mrkdwn", "text": f"*Escalation Reason:*\n{reason}"},
             ],
         },
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"*Reason:*\n{reason}",
+                "text": (
+                    f"*Root Cause:*\n{root_cause or 'Customer discount applied without required policy approval.'}\n\n"
+                    f"*Evidence Summary:*\n{evidence_summary or 'Invoice total mismatch. Policy FIN-042 threshold exceeded without prior approval.'}\n\n"
+                    f"*Recommendation:*\n{recommendation or 'Request manager discount approval or issue payment request for outstanding amount.'}"
+                ),
             },
         },
         {"type": "divider"},
@@ -90,7 +100,7 @@ def send_escalation_message(
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "Review the evidence and authenticate in TallyFlow before making a decision.",
+                "text": f"🔗 *Investigation URL:* <{review_link}|View Investigation in TallyFlow>\n_Actions must be authorized via authenticated API._",
             },
         },
         {
@@ -98,10 +108,23 @@ def send_escalation_message(
             "elements": [
                 {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": "Review in TallyFlow"},
-                    "url": _review_url(transaction_id),
-                    "action_id": "review_financial_case",
-                }
+                    "text": {"type": "plain_text", "text": "Review & Authenticate"},
+                    "url": review_link,
+                    "style": "primary",
+                    "action_id": "review_in_tallyflow",
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Approve Discount"},
+                    "value": f"manager_approve:{transaction_id}",
+                    "action_id": "slack_mgr_approve",
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Reject Discount"},
+                    "value": f"manager_reject:{transaction_id}",
+                    "action_id": "slack_mgr_reject",
+                },
             ],
         },
     ]
@@ -109,7 +132,7 @@ def send_escalation_message(
     try:
         response = client.chat_postMessage(
             channel=channel,
-            text=f"Discount approval required for {transaction_id} – {customer} – ${amount:,.2f}",
+            text=f"Escalation required for {transaction_id} ({customer}) – ${amount:,.2f}",
             blocks=blocks,
         )
         if response.get("ok"):

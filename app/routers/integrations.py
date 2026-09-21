@@ -38,6 +38,21 @@ async def _handle_slack_events(request: Request):
 
     if payload.get("type") == "url_verification":
         return JSONResponse({"challenge": payload.get("challenge", "")})
+
+    # When Slack interactive buttons (Approve/Reject) are clicked:
+    # Direct manager to authenticate in TallyFlow to execute ledger mutation (Rule 11)
+    if payload.get("type") == "block_actions":
+        actions = payload.get("actions", [])
+        action_val = actions[0].get("value", "") if actions else ""
+        return JSONResponse({
+            "response_type": "ephemeral",
+            "text": (
+                f"Action received: `{action_val}`. "
+                "Per Financial Architecture Rule 11, financial mutations require authenticated backend credentials. "
+                "Please review and submit authorization in TallyFlow."
+            ),
+        })
+
     return JSONResponse({"ok": True})
 
 

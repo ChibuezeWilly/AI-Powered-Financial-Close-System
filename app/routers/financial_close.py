@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import json
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database.database import get_db
 from ..schema.models import AccountingPeriod, FinancialTransaction, MonthlyReport, Notification
 from .auth import DecisionUser, FinanceUser, audit
+
 from ..services.ingestion import import_invoices, reconcile_period
 from ..services.rag.ingestion import ingest_all_documents
 
@@ -176,7 +180,41 @@ def reopen_period(period: str, reason: str, user: DecisionUser, db: Session = De
     if not record:
         raise HTTPException(status_code=404, detail="Period not found")
     record.status = "OPEN"
-    record.closed_reason = reason
+    record.reopened_at = datetime.now(timezone.utc)
+    record.reopened_by = user.id
+    record.reopen_reason = reason
     audit(db, user.id, "PERIOD_REOPENED", f"{period}:{reason}")
     db.commit()
-    return {"period": period, "status": "OPEN"}
+    return {"period": period, "status": "OPEN", "reopened_by": user.id, "reason": reason}
+
+
+class PaymentIngestionPayload(BaseModel):
+    customer_id: str
+    amount: float
+    invoice_id: str | None = None
+    payment_method: str = "wire_transfer"
+    reference: str | None = None
+
+
+@router.post("/ingestion/payments")
+async def ingest_payment(
+    payload: PaymentIngestionPayload,
+    user: DecisionUser,
+    db: Session = Depends(get_db),
+):
+    """Ingest and reconcile an incoming customer payment (Non-Negotiable #13)."""
+    from decimal import Decimal
+    from ..services.workflow import process_incoming_payment
+
+    result = await process_incoming_payment(
+        db=db,
+        customer_id=payload.customer_id,
+        amount=Decimal(str(payload.amount)),
+        invoice_id=payload.invoice_id,
+        payment_method=payload.payment_method,
+        reference=payload.reference or "WIRE-RECV",
+    )
+    audit(db, user.id, "PAYMENT_INGESTED", f"{payload.customer_id}:${payload.amount}")
+    db.commit()
+    return result
+

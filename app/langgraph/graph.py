@@ -2,11 +2,19 @@
 from __future__ import annotations
 
 from functools import partial
-
 from langgraph.graph import END, START, StateGraph
 
 from .model_router import StructuredModelRunner, configured_models, default_model_runner
-from .nodes import apply_policy, determine_root_cause, document_intelligence, investigate, reconcile, report, resolve_entities, verify
+from .nodes import (
+    apply_policy,
+    determine_root_cause,
+    document_intelligence,
+    investigate,
+    reconcile,
+    report,
+    resolve_entities,
+    verify,
+)
 from .schema import InvestigationInput
 from .state import InvestigationState
 
@@ -42,4 +50,9 @@ def run_investigation(request: InvestigationInput, runner: StructuredModelRunner
     effective_runner = runner if runner is not None else default_model_runner()
     graph = investigation_graph if effective_runner is None else build_investigation_graph(effective_runner)
     models = configured_models()
-    return graph.invoke({"request": request, "evidence": request.evidence, "errors": [], "agent_models": models.model_dump()})
+    return graph.invoke({
+        "request": request,
+        "evidence": request.evidence,
+        "errors": [],
+        "agent_models": models.model_dump(),
+    })
