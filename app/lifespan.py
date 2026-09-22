@@ -1,4 +1,5 @@
 """Application startup and shutdown lifecycle management."""
+
 from __future__ import annotations
 
 import json
@@ -16,7 +17,13 @@ from sqlalchemy import select
 
 from .database.config import settings
 from .database.database import Base, SessionLocal, engine
-from .schema.models import AccountingPeriod, DocumentChunk, FinancialTransaction, Investigation, User
+from .schema.models import (
+    AccountingPeriod,
+    DocumentChunk,
+    FinancialTransaction,
+    Investigation,
+    User,
+)
 from .services.embedding_service import build_bm25_index
 from .services.oauth import hash_password
 
@@ -33,8 +40,11 @@ def _ensure_local_redis() -> subprocess.Popen | None:
 
     try:
         from redis import Redis
+
         port = parsed.port or 6379
-        client = Redis.from_url(settings.REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
+        client = Redis.from_url(
+            settings.REDIS_URL, socket_connect_timeout=1, socket_timeout=1
+        )
         try:
             client.ping()
             return None
@@ -53,11 +63,15 @@ def _ensure_local_redis() -> subprocess.Popen | None:
             )
         elif shutil.which("docker"):
             container_name = "tallyflow-redis"
-            subprocess.run(["docker", "start", container_name], capture_output=True, check=False)
+            subprocess.run(
+                ["docker", "start", container_name], capture_output=True, check=False
+            )
 
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
-            client = Redis.from_url(settings.REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
+            client = Redis.from_url(
+                settings.REDIS_URL, socket_connect_timeout=1, socket_timeout=1
+            )
             try:
                 if client.ping():
                     return redis_process
@@ -73,6 +87,7 @@ def _ensure_local_redis() -> subprocess.Popen | None:
 
 def _migrate_schema() -> None:
     from sqlalchemy import text
+
     migrations = [
         "ALTER TABLE investigations ADD COLUMN IF NOT EXISTS agent_findings TEXT DEFAULT '[]'",
         "ALTER TABLE investigations ADD COLUMN IF NOT EXISTS customer_email_draft TEXT",
@@ -97,7 +112,9 @@ def _seed_database() -> None:
     from .services.seed_data import seed_all as seed_financial_data
 
     with SessionLocal() as db:
-        if not db.scalar(select(User).where(User.email == settings.DEFAULT_ADMIN_EMAIL.lower())):
+        if not db.scalar(
+            select(User).where(User.email == settings.DEFAULT_ADMIN_EMAIL.lower())
+        ):
             db.add(
                 User(
                     email=settings.DEFAULT_ADMIN_EMAIL.lower(),
@@ -111,14 +128,18 @@ def _seed_database() -> None:
         for year in range(current_year - 1, current_year + 2):
             for month in range(1, 13):
                 code = f"{year}-{month:02d}"
-                if not db.scalar(select(AccountingPeriod).where(AccountingPeriod.code == code)):
-                    db.add(AccountingPeriod(
-                        code=code,
-                        year=year,
-                        month=month,
-                        period_start=f"{year}-{month:02d}-01",
-                        period_end=f"{year}-{month:02d}-28",
-                    ))
+                if not db.scalar(
+                    select(AccountingPeriod).where(AccountingPeriod.code == code)
+                ):
+                    db.add(
+                        AccountingPeriod(
+                            code=code,
+                            year=year,
+                            month=month,
+                            period_start=f"{year}-{month:02d}-01",
+                            period_end=f"{year}-{month:02d}-28",
+                        )
+                    )
         db.commit()
         seed_financial_data(db)
 
@@ -132,14 +153,31 @@ async def app_lifespan(app: FastAPI):
         logger.warning("Redis startup skipped: %s", exc)
 
     _seed_database()
+
     with SessionLocal() as db:
         chunks = db.query(DocumentChunk).all()
-        build_bm25_index([{"content": chunk.content, "document_id": chunk.document_id, "embedding_id": chunk.embedding_id} for chunk in chunks])
+
+        if chunks:
+            build_bm25_index(
+                [
+                    {
+                        "content": chunk.content,
+                        "document_id": chunk.document_id,
+                        "embedding_id": chunk.embedding_id,
+                    }
+                    for chunk in chunks
+                ]
+            )
+        else:
+            logger.info(
+                "Database contains no documents yet. Skipping BM25 search index initialization."
+            )
 
     ngrok_authtoken = settings.NGROK_AUTHTOKEN
     if ngrok_authtoken:
         try:
             import ngrok
+
             listener = await ngrok.forward("localhost:8000", authtoken=ngrok_authtoken)
             app.state.ngrok_listener = listener
         except Exception:
@@ -152,6 +190,7 @@ async def app_lifespan(app: FastAPI):
             import asyncio
             from arq.worker import create_worker
             from .arq_worker import WorkerSettings
+
             arq_worker = create_worker(WorkerSettings)
             worker_task = asyncio.create_task(arq_worker.async_run())
             app.state.arq_worker = arq_worker
