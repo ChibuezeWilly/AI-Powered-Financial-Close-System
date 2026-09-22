@@ -3,7 +3,7 @@
  * Handles auth header injection, error handling, and base URL configuration.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE = import.meta.env["VITE_API_URL"] || "http://localhost:8000";
 
 function getToken(): string | null {
   return localStorage.getItem("financial-close-token");
@@ -34,7 +34,7 @@ export async function apiPost<T = unknown>(
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({ detail: res.statusText }));

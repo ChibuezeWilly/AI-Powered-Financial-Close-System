@@ -60,8 +60,8 @@ def kpis(period: str = "2026-09", _: FinanceUser = None, db: Session = Depends(g
 
 
 @router.get("/workspace/reconciliation-current")
-def reconciliation_current(_: FinanceUser = None, db: Session = Depends(get_db)):
-    current_period = "2026-09"
+def reconciliation_current(period: str = "2026-09", _: FinanceUser = None, db: Session = Depends(get_db)):
+    current_period = period
     txs = _transactions(db, period=current_period)
     matched = [t for t in txs if t["status"] in {"RECONCILED", "RESOLVED"}]
     unmatched = [t for t in txs if t["status"] not in {"RECONCILED", "RESOLVED"}]
@@ -104,8 +104,8 @@ def investigations(_: FinanceUser = None, db: Session = Depends(get_db)):
 
 
 @router.get("/workspace/approvals")
-def approvals(_: FinanceUser = None, db: Session = Depends(get_db)):
-    return _transactions(db, statuses={"AWAITING_HUMAN_APPROVAL", "AWAITING_MANAGER_APPROVAL"})
+def approvals(period: str | None = None, _: FinanceUser = None, db: Session = Depends(get_db)):
+    return _transactions(db, period=period, statuses={"AWAITING_HUMAN_APPROVAL", "AWAITING_MANAGER_APPROVAL"})
 
 
 @router.get("/workspace/reconciled")

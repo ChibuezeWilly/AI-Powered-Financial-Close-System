@@ -17,9 +17,9 @@ export function TransactionHeader({
   const diff = Number(transaction.difference);
   const isOverpayment = diff < 0;
   const isUnderpayment = diff > 0;
+  const hasDiscrepancy = diff !== 0 || Boolean(transaction.discrepancy_type);
   const canInvestigate =
-    !investigating &&
-    transaction.status !== "INVESTIGATING" &&
+    hasDiscrepancy &&
     transaction.status !== "RECONCILED" &&
     transaction.status !== "RESOLVED";
 

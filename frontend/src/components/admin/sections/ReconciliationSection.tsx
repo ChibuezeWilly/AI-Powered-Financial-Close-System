@@ -4,12 +4,14 @@ import { TransactionRecord, formatCurrency, getStatusBadge } from "./types";
 
 interface ReconciliationSectionProps {
   transactions: TransactionRecord[];
+  selectedPeriod: string;
   runReconcile: () => void;
   actionLoading: string | null;
 }
 
 export function ReconciliationSection({
   transactions,
+  selectedPeriod,
   runReconcile,
   actionLoading,
 }: ReconciliationSectionProps) {
@@ -21,7 +23,7 @@ export function ReconciliationSection({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-              <Clock className="h-3.5 w-3.5" /> CURRENT CLOSE PERIOD: SEPTEMBER 2026 (2026-09)
+              <Clock className="h-3.5 w-3.5" /> CURRENT CLOSE PERIOD: {new Date(`${selectedPeriod}-01`).toLocaleDateString("en-US", { month: "long", year: "numeric" }).toUpperCase()} ({selectedPeriod})
             </div>
             <h2 className="mt-2 text-xl font-bold text-white">Period Ready for Reconciliation</h2>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -60,7 +62,7 @@ export function ReconciliationSection({
       <div className="overflow-hidden rounded-2xl border border-border bg-[#0a2033]">
         <div className="border-b border-border bg-[#0d2638] px-5 py-3">
           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            September 2026 Transactions ({transactions.length} items)
+            {new Date(`${selectedPeriod}-01`).toLocaleDateString("en-US", { month: "long", year: "numeric" })} Transactions ({transactions.length} items)
           </p>
         </div>
         <div className="overflow-x-auto">

@@ -325,7 +325,11 @@ export function TransactionsSection({
                           onClick={() => navigate({ to: `/transactions/${tx.id}` })}
                           className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-[#071a2b]"
                         >
-                          {tx.status === "DISCREPANCY_DETECTED" ? "Investigate" : "Inspect"}
+                          {tx.investigation_status === "COMPLETED" && tx.difference !== 0
+                            ? "Review Approval"
+                            : tx.status === "DISCREPANCY_DETECTED"
+                            ? "Investigate"
+                            : "Inspect"}
                         </button>
                       </td>
                     </tr>

@@ -3,15 +3,16 @@ import { TransactionRecord, formatCurrency } from "./types";
 
 interface ApprovalsSectionProps {
   transactions: TransactionRecord[];
+  selectedPeriod: string;
 }
 
-export function ApprovalsSection({ transactions }: ApprovalsSectionProps) {
+export function ApprovalsSection({ transactions, selectedPeriod }: ApprovalsSectionProps) {
   const navigate = useNavigate();
 
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-bold text-white">Financial Approval Queue</h2>
+        <h2 className="text-lg font-bold text-white">Financial Approval Queue · {selectedPeriod}</h2>
         <p className="text-xs text-muted-foreground">
           Human-in-the-loop sign-offs for adjustments, discounts, and payments governed by FIN-010 matrix.
         </p>

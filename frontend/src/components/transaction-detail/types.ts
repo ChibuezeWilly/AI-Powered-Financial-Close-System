@@ -78,6 +78,7 @@ export type TransactionDetail = {
   discrepancy_type: string | null;
   severity: string;
   status: string;
+  investigation_status?: string | null;
   root_cause: string | null;
   recommendation: string | null;
   confidence: number | null;

@@ -1,13 +1,17 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  Bell,
   Menu,
+  LogOut,
   RefreshCw,
+  Sparkles,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { apiGet, apiPost } from "../lib/api";
+import { apiGet, apiPost, clearToken } from "../lib/api";
+import { useNotifications } from "../hooks/useNotifications";
 import { AdminSidebar, navigationItems } from "../components/admin/AdminSidebar";
 import { UnauthorizedView } from "../components/common/UnauthorizedView";
 import { TransactionsSection } from "../components/admin/sections/TransactionsSection";
@@ -49,11 +53,13 @@ function SectionRoute() {
   const [selectedPeriod, setSelectedPeriod] = useState("2026-09");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUserTx, setSelectedUserTx] = useState<any | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const [docPreview, setDocPreview] = useState<{ title: string; content: string } | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const months = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09"];
+  const { notifications, unreadCount, dismiss } = useNotifications(!!user);
 
   // Authenticate and fetch user role
   useEffect(() => {
@@ -86,16 +92,16 @@ function SectionRoute() {
         const data = await apiGet<TransactionRecord[]>(`/api/v1/transactions?${query}`);
         setTransactions(data);
       } else if (section === "reconciliation" || section === "financial-close") {
-        const data = await apiGet<{ transactions: TransactionRecord[] }>("/api/v1/workspace/reconciliation-current");
+        const data = await apiGet<{ transactions: TransactionRecord[] }>(`/api/v1/workspace/reconciliation-current?period=${selectedPeriod}`);
         setTransactions(data.transactions || []);
       } else if (section === "discrepancies") {
-        const data = await apiGet<TransactionRecord[]>("/api/v1/workspace/discrepancies");
+        const data = await apiGet<TransactionRecord[]>(`/api/v1/workspace/discrepancies?period=${selectedPeriod}`);
         setTransactions(data);
       } else if (section === "investigations") {
         const data = await apiGet<InvestigationRecord[]>("/api/v1/workspace/investigations");
         setInvestigations(data);
       } else if (section === "approvals") {
-        const data = await apiGet<TransactionRecord[]>("/api/v1/workspace/approvals");
+        const data = await apiGet<TransactionRecord[]>(`/api/v1/workspace/approvals?period=${selectedPeriod}`);
         setTransactions(data);
       } else if (section === "reconciled") {
         const data = await apiGet<TransactionRecord[]>(`/api/v1/workspace/reconciled?period=${selectedPeriod}`);
@@ -127,8 +133,8 @@ function SectionRoute() {
   const runReconcile = async () => {
     setActionLoading("reconcile");
     try {
-      const res = await apiPost<{ matched: number; discrepancies: number }>("/api/v1/periods/2026-09/reconcile");
-      toast.success("Period 2026-09 Reconciled", {
+      const res = await apiPost<{ matched: number; discrepancies: number }>(`/api/v1/periods/${selectedPeriod}/reconcile`);
+      toast.success(`Period ${selectedPeriod} Reconciled`, {
         description: `Matched: ${res.matched ?? 0} · Discrepancies: ${res.discrepancies ?? 0}`,
       });
       loadData();
@@ -154,6 +160,17 @@ function SectionRoute() {
       setSelectedUserTx(data);
     } catch (err) {
       toast.error("Failed to load account transactions");
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await apiPost("/api/v1/auth/logout");
+    } catch {
+      // Local session cleanup still happens if the backend is unavailable.
+    } finally {
+      clearToken();
+      window.location.assign("/");
     }
   };
 
@@ -232,6 +249,9 @@ function SectionRoute() {
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-2 rounded-full border border-primary/30 bg-[#071a2b] px-2 py-1 text-xs font-medium text-primary sm:flex">
+              <Sparkles className="h-3.5 w-3.5" /> Inference Online
+            </div>
             <button
               onClick={() => setMobileNavOpen(true)}
               className="rounded-lg border border-border bg-card p-2 text-muted-foreground hover:text-white lg:hidden"
@@ -239,22 +259,88 @@ function SectionRoute() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <Link
-              to="/"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-[#071a2b] px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-card hover:text-white"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" /> Back to Overview
-            </Link>
+            
             <button
               onClick={loadData}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-[#071a2b] px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-white"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
             </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative rounded-lg border border-border bg-[#071a2b] p-2 text-muted-foreground hover:text-white"
+                aria-label="Notifications"
+              >
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+              {showNotifications && (
+                <div className="absolute right-0 top-12 z-50 w-80 rounded-2xl border border-border bg-[#0d2638] p-4 shadow-2xl">
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-primary">Notifications</span>
+                    <button onClick={() => setShowNotifications(false)} className="text-muted-foreground hover:text-white" aria-label="Close notifications">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="mt-2 max-h-64 space-y-2 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <p className="py-4 text-center text-xs text-muted-foreground">No new notifications</p>
+                    ) : (
+                      notifications.map((notification) => (
+                        <div key={notification.id} className="flex items-start justify-between rounded-lg bg-black/20 p-2 text-xs">
+                          <div>
+                            <p className="font-semibold text-white">{notification.event.replaceAll("_", " ")}</p>
+                            <p className="text-muted-foreground">{notification.message}</p>
+                          </div>
+                          <button onClick={() => dismiss(notification.id)} className="text-muted-foreground hover:text-white" aria-label="Dismiss notification">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <span className="hidden text-xs font-semibold text-white md:inline">{user.role}</span>
+            <button
+              onClick={handleSignOut}
+              className="hidden items-center gap-1.5 rounded-md border border-border bg-primary/10 px-3.5 py-2 text-xs font-semibold text-primary sm:inline-flex"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Sign out
+            </button>
           </div>
         </header>
 
         <main className="p-5 md:p-8 space-y-6">
+          <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-[#071a2b] px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-card hover:text-white"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to Overview
+            </Link>
+          {(["financial-close", "reconciliation", "discrepancies", "approvals"] as string[]).includes(section) && (
+            <div className="flex w-full items-center gap-1 overflow-x-auto rounded-xl border border-border bg-[#071a2b] p-1.5">
+              {months.map((month) => (
+                <button
+                  key={month}
+                  onClick={() => setSelectedPeriod(month)}
+                  className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                    selectedPeriod === month
+                      ? "bg-primary text-[#071a2b] shadow"
+                      : "text-muted-foreground hover:text-white"
+                  }`}
+                >
+                  {new Date(`${month}-01`).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                </button>
+              ))}
+            </div>
+          )}
           {section === "transactions" && (
             <TransactionsSection
               transactions={transactions}
@@ -270,13 +356,14 @@ function SectionRoute() {
           {(section === "reconciliation" || section === "financial-close") && (
             <ReconciliationSection
               transactions={transactions}
+              selectedPeriod={selectedPeriod}
               runReconcile={runReconcile}
               actionLoading={actionLoading}
             />
           )}
 
           {section === "discrepancies" && (
-            <DiscrepanciesSection transactions={transactions} />
+            <DiscrepanciesSection transactions={transactions} selectedPeriod={selectedPeriod} />
           )}
 
           {section === "investigations" && (
@@ -284,7 +371,7 @@ function SectionRoute() {
           )}
 
           {section === "approvals" && (
-            <ApprovalsSection transactions={transactions} />
+            <ApprovalsSection transactions={transactions} selectedPeriod={selectedPeriod} />
           )}
 
           {section === "reconciled" && (

@@ -32,6 +32,8 @@ export function RecommendationAndApprovalSection({
   const isAwaitingManager = transaction.status === "AWAITING_MANAGER_APPROVAL";
   const isEscalated = transaction.status === "ESCALATED" || isAwaitingManager;
   const isResolved = ["RECONCILED", "RESOLVED", "ADJUSTED"].includes(transaction.status);
+  const investigationCompleted = transaction.investigation?.status === "COMPLETED";
+  const approvalReady = isAwaitingHuman || (investigationCompleted && !isResolved && transaction.difference !== 0);
 
   const diff = Number(transaction.difference);
   const diffAbs = Math.abs(diff);
@@ -251,7 +253,7 @@ export function RecommendationAndApprovalSection({
         </div>
 
         {/* Action Controls - Visible ONLY when awaiting approval */}
-        {(isAwaitingHuman || isAwaitingManager) ? (
+        {(approvalReady || isAwaitingManager) ? (
           <div className="mt-6 rounded-xl border border-primary/30 bg-[#071a2b] p-5">
             <label className="block text-xs font-bold text-slate-200 mb-2">
               Decision Reason / Rationale <span className="text-rose-400">*</span>

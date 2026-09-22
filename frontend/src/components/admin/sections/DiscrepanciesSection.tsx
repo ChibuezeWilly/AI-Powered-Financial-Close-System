@@ -1,19 +1,40 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Filter, Search, X } from "lucide-react";
+import { toast } from "sonner";
+import { apiPost } from "../../../lib/api";
 import { TransactionRecord, formatCurrency, getSeverityBadge, getStatusBadge } from "./types";
 
 interface DiscrepanciesSectionProps {
   transactions: TransactionRecord[];
+  selectedPeriod: string;
 }
 
-export function DiscrepanciesSection({ transactions }: DiscrepanciesSectionProps) {
+export function DiscrepanciesSection({ transactions, selectedPeriod }: DiscrepanciesSectionProps) {
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [severityFilter, setSeverityFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
+  const [investigatingId, setInvestigatingId] = useState<string | null>(null);
+
+  const startInvestigation = async (transactionId: string) => {
+    setInvestigatingId(transactionId);
+    try {
+      await apiPost(`/api/v1/transactions/${transactionId}/investigate`);
+      toast.success("Investigation started", {
+        description: `LangGraph is analyzing ${transactionId}.`,
+      });
+      navigate({ to: `/transactions/${transactionId}` });
+    } catch (error) {
+      toast.error("Investigation could not start", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setInvestigatingId(null);
+    }
+  };
 
   const filtered = useMemo(() => {
     return transactions.filter((tx) => {
@@ -44,7 +65,7 @@ export function DiscrepanciesSection({ transactions }: DiscrepanciesSectionProps
       <div className="rounded-2xl border border-rose-500/30 bg-[#0a2033] p-5 shadow">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold text-white">Discrepancy Resolution Watch</h2>
+            <h2 className="text-lg font-bold text-white">Discrepancy Resolution Watch · {selectedPeriod}</h2>
             <p className="text-xs text-muted-foreground">
               All transactions with detected variances requiring active reconciliation, investigation, or managerial approval.
             </p>
@@ -163,9 +184,18 @@ export function DiscrepanciesSection({ transactions }: DiscrepanciesSectionProps
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      <span className="inline-flex items-center gap-1 text-primary hover:underline">
-                        Investigate <ArrowRight className="h-3 w-3" />
-                      </span>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void startInvestigation(tx.id);
+                        }}
+                        disabled={investigatingId === tx.id}
+                        className="inline-flex items-center gap-1 text-primary hover:underline disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {investigatingId === tx.id ? "Starting..." : "Investigate"}
+                        <ArrowRight className="h-3 w-3" />
+                      </button>
                     </td>
                   </tr>
                 ))

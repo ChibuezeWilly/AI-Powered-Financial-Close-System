@@ -11,7 +11,7 @@ export function InvestigationsSection({ investigations }: InvestigationsSectionP
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-center md:justify-between gap-3 md:gap-0">
         <div>
           <h2 className="text-lg font-bold text-white">LangGraph AI Investigations</h2>
           <p className="text-xs text-muted-foreground">

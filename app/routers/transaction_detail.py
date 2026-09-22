@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from ..database.database import get_db
 from ..schema.models import Approval, AuditEvent, FinancialTransaction, Investigation, JournalEntry
 from .auth import FinanceUser
-from .transaction_payload import tx_payload
+from .transaction_payload import normalized_investigation_status, tx_payload
 
 router = APIRouter(prefix="", tags=["transaction-detail"])
 DOCUMENT_ROOT = Path(__file__).resolve().parents[2] / "documents" / "invoices"
@@ -161,7 +161,7 @@ def transaction_detail(transaction_id: str, _: FinanceUser, db: Session = Depend
         "investigation": (
             {
                 "id": inv.id,
-                "status": inv.status,
+                "status": normalized_investigation_status(tx_payload(tx)["status"], inv.status),
                 "evidence": json.loads(inv.evidence or "[]"),
                 "agent_findings": json.loads(inv.agent_findings or "[]"),
                 "timeline": json.loads(inv.timeline or "[]"),

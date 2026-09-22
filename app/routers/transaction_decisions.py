@@ -63,8 +63,16 @@ async def decide(
     accounting_period = db.scalar(select(AccountingPeriod).where(AccountingPeriod.code == tx.period))
     if not accounting_period or accounting_period.status != "OPEN":
         raise HTTPException(status_code=409, detail="Financial decisions are blocked for a closed accounting period")
+    inv = db.scalar(select(Investigation).where(Investigation.transaction_id == tx.id))
     if tx.status != "AWAITING_HUMAN_APPROVAL":
-        raise HTTPException(status_code=409, detail=f"Cannot decide a transaction in {tx.status}")
+        if inv and inv.status == "COMPLETED" and tx.difference != 0 and tx.status in {
+            "DISCREPANCY_DETECTED",
+            "INVESTIGATING",
+            "PENDING",
+        }:
+            tx.status = "AWAITING_HUMAN_APPROVAL"
+        else:
+            raise HTTPException(status_code=409, detail=f"Cannot decide a transaction in {tx.status}")
     key = request.headers.get("Idempotency-Key", f"{transaction_id}:{payload.decision}")
     prior = db.scalar(select(IdempotentAction).where(IdempotentAction.key == key))
     if prior:
@@ -77,7 +85,6 @@ async def decide(
             decided_by=user.id,
         )
     )
-    inv = db.scalar(select(Investigation).where(Investigation.transaction_id == tx.id))
     if not inv or inv.status not in {"COMPLETED", "PENDING"}:
         raise HTTPException(status_code=409, detail="Complete the AI investigation before submitting a financial decision")
     result = await run_human_decision(

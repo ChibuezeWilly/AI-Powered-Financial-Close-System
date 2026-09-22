@@ -59,6 +59,17 @@ def _parse_and_validate(raw_text: str, schema: type[SchemaT]) -> SchemaT:
                     data = data[wrap_key]
                     break
 
+            # Providers commonly call the required RootCauseHypothesis.cause
+            # field "root_cause" or return it as a plain string.
+            if schema.__name__ == "RootCauseHypothesis" and "cause" not in data:
+                root_cause = data.get("root_cause")
+                if isinstance(root_cause, str) and root_cause.strip():
+                    data["cause"] = root_cause.strip()
+                elif isinstance(root_cause, dict):
+                    data = {**root_cause, **{key: value for key, value in data.items() if key != "root_cause"}}
+                    if "cause" not in data and isinstance(data.get("summary"), str):
+                        data["cause"] = data["summary"]
+
             # Coerce lists of dicts to lists of strings (e.g. recommendations / risks)
             for list_field in ("recommendations", "risks", "evidence_ids", "supporting_evidence_ids", "contradictions", "checks"):
                 if list_field in data and isinstance(data[list_field], list):
@@ -122,7 +133,7 @@ class OpenAICompatibleStructuredRunner:
             payload,
             default=lambda v: v.model_dump(mode="json") if isinstance(v, BaseModel) else str(v),
         )
-        fallback_model = getattr(settings, "FALLBACK_LLM_MODEL", "meta-llama/Llama-3.1-8B-Instruct")
+        fallback_model = settings.FALLBACK_LLM_MODEL
         
         # Attempt Primary Model
         try:
@@ -156,14 +167,14 @@ class HuggingFaceStructuredRunner:
 
     def __init__(self, api_key: str) -> None:
         from huggingface_hub import InferenceClient
-        self.client = InferenceClient(token=api_key)
+        self.client = InferenceClient(token=api_key, provider=settings.INFERENCE_PROVIDER)
 
     def invoke(self, *, model: str, prompt: str, payload: dict[str, Any], schema: type[SchemaT]) -> SchemaT:
         serialised_payload = json.dumps(
             payload,
             default=lambda value: value.model_dump(mode="json") if isinstance(value, BaseModel) else str(value),
         )
-        fallback_model = getattr(settings, "FALLBACK_LLM_MODEL", "meta-llama/Llama-3.1-8B-Instruct")
+        fallback_model = settings.FALLBACK_LLM_MODEL
         try:
             response = self.client.chat_completion(
                 model=model,
@@ -314,9 +325,7 @@ class CompositeStructuredRunner:
         self.deterministic_runner = DeterministicAccountingRunner()
         self.llm_runner: StructuredModelRunner | None = None
 
-        if settings.LLM_API_KEY or settings.LLM_BASE_URL:
-            self.llm_runner = OpenAICompatibleStructuredRunner()
-        elif settings.HF_TOKEN:
+        if settings.HF_TOKEN:
             self.llm_runner = HuggingFaceStructuredRunner(settings.HF_TOKEN)
 
     def invoke(self, *, model: str, prompt: str, payload: dict[str, Any], schema: type[SchemaT]) -> SchemaT:
@@ -351,13 +360,13 @@ class CompositeStructuredRunner:
 
 def configured_models() -> ModelAssignments:
     return ModelAssignments(
-        reconciliation=settings.GENERAL_AGENT_MODEL or "meta-llama/Llama-3.3-70B-Instruct",
-        investigation=settings.INVESTIGATION_MODEL or "meta-llama/Llama-3.3-70B-Instruct",
-        document_intelligence=settings.VISION_MODEL or "meta-llama/Llama-3.3-70B-Instruct",
-        policy=settings.GENERAL_AGENT_MODEL or "meta-llama/Llama-3.3-70B-Instruct",
-        root_cause=settings.INVESTIGATION_MODEL or "meta-llama/Llama-3.3-70B-Instruct",
-        reporting=settings.GENERAL_AGENT_MODEL or "meta-llama/Llama-3.3-70B-Instruct",
-        verification=settings.GENERAL_AGENT_MODEL or "meta-llama/Llama-3.3-70B-Instruct",
+        reconciliation=settings.GENERAL_AGENT_MODEL or "meta-llama/llama-3.3-70b-instruct",
+        investigation=settings.INVESTIGATION_MODEL or "meta-llama/llama-3.3-70b-instruct",
+        document_intelligence=settings.VISION_MODEL or "meta-llama/llama-3.3-70b-instruct",
+        policy=settings.GENERAL_AGENT_MODEL or "meta-llama/llama-3.3-70b-instruct",
+        root_cause=settings.INVESTIGATION_MODEL or "meta-llama/llama-3.3-70b-instruct",
+        reporting=settings.GENERAL_AGENT_MODEL or "meta-llama/llama-3.3-70b-instruct",
+        verification=settings.GENERAL_AGENT_MODEL or "meta-llama/llama-3.3-70b-instruct",
         embeddings=settings.EMBEDDING_MODEL or "BAAI/bge-m3",
         reranker=settings.RERANKING_MODEL or "BAAI/bge-reranker-v2-m3",
     )

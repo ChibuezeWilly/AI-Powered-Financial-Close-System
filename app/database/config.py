@@ -31,12 +31,11 @@ class Settings(BaseSettings):
     HF_TOKEN: str = ""
     EMBEDDING_MODEL: str = "BAAI/bge-m3"
     RERANKING_MODEL: str = "BM25"
-    VISION_MODEL: str = "meta-llama/Llama-3.3-70B-Instruct"
-    INVESTIGATION_MODEL: str = "meta-llama/Llama-3.3-70B-Instruct"
-    GENERAL_AGENT_MODEL: str = "meta-llama/Llama-3.3-70B-Instruct"
-    LLM_PROVIDER: str = ""
-    LLM_API_KEY: str = ""
-    LLM_BASE_URL: str = ""
+    VISION_MODEL: str = "meta-llama/llama-3.3-70b-instruct"
+    INVESTIGATION_MODEL: str = "meta-llama/llama-3.3-70b-instruct"
+    GENERAL_AGENT_MODEL: str = "meta-llama/llama-3.3-70b-instruct"
+    INFERENCE_PROVIDER: str = "novita"
+    FALLBACK_LLM_MODEL: str = "meta-llama/llama-3.1-8b-instruct"
 
     PINECONE_API_KEY: str = Field(default="", validation_alias=AliasChoices("PINECONE_API_KEY", "PINE_CONE_API_KEY"))
     PINECONE_INDEX: str = ""

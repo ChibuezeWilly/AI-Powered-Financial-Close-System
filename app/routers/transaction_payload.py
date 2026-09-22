@@ -4,12 +4,30 @@ from __future__ import annotations
 from ..schema.models import FinancialTransaction
 
 
+def normalized_investigation_status(transaction_status: str, investigation_status: str | None) -> str | None:
+    """Expose one investigation status across list and detail responses."""
+    if investigation_status in {"PENDING", "RUNNING"}:
+        return investigation_status
+    if investigation_status in {"COMPLETED", "AWAITING_HUMAN_APPROVAL", "REVIEW", "REVIEW_REQUIRED"}:
+        return "COMPLETED"
+    if transaction_status in {"AWAITING_HUMAN_APPROVAL", "AWAITING_MANAGER_APPROVAL"}:
+        return "COMPLETED"
+    return investigation_status
+
+
 def tx_payload(tx: FinancialTransaction) -> dict:
     computed_status = tx.status
+    latest_inv = None
     if hasattr(tx, "investigations") and tx.investigations:
-        latest_inv = tx.investigations[-1]
+        latest_inv = max(tx.investigations, key=lambda investigation: investigation.created_at)
         if latest_inv.status in {"PENDING", "RUNNING"}:
             computed_status = "INVESTIGATING"
+        elif latest_inv.status == "COMPLETED" and tx.difference != 0 and tx.status in {
+            "DISCREPANCY_DETECTED",
+            "INVESTIGATING",
+            "PENDING",
+        }:
+            computed_status = "AWAITING_HUMAN_APPROVAL"
     elif tx.status == "INVESTIGATING":
         computed_status = "INVESTIGATING"
 
@@ -55,6 +73,10 @@ def tx_payload(tx: FinancialTransaction) -> dict:
         "discrepancy_type": tx.discrepancy_type,
         "severity": tx.severity,
         "status": computed_status,
+        "investigation_status": normalized_investigation_status(
+            computed_status,
+            latest_inv.status if latest_inv else None,
+        ),
         "root_cause": tx.root_cause,
         "recommendation": tx.recommendation,
         "confidence": float(tx.confidence) if tx.confidence is not None else None,
