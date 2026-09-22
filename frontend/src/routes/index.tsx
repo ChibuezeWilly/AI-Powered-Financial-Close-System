@@ -81,7 +81,7 @@ function Index() {
     if (!token || user?.role === "REGULAR_USER") return;
     try {
       const [kpiData, txData] = await Promise.all([
-        apiGet<KPIResponse>("/api/v1/workspace/kpis"),
+        apiGet<KPIResponse>(`/api/v1/workspace/kpis?period=${selectedPeriod}`),
         apiGet<TransactionRecord[]>(`/api/v1/transactions?period=${selectedPeriod}`),
       ]);
       setKpis(kpiData);

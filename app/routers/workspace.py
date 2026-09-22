@@ -28,20 +28,25 @@ def _transactions(db: Session, period: str | None = None, statuses: set[str] | N
 
 
 @router.get("/workspace/kpis")
-def kpis(_: FinanceUser = None, db: Session = Depends(get_db)):
+def kpis(period: str = "2026-09", _: FinanceUser = None, db: Session = Depends(get_db)):
     discrepancy_statuses = {"DISCREPANCY_DETECTED", "INVESTIGATING", "AWAITING_HUMAN_APPROVAL", "AWAITING_MANAGER_APPROVAL", "ESCALATED"}
-    discrepancies_count = db.scalar(select(func.count(FinancialTransaction.id)).where(FinancialTransaction.status.in_(discrepancy_statuses))) or 0
-    awaiting_count = db.scalar(select(func.count(FinancialTransaction.id)).where(FinancialTransaction.status.in_({"AWAITING_HUMAN_APPROVAL", "AWAITING_MANAGER_APPROVAL"}))) or 0
-    reconciled_count = db.scalar(select(func.count(FinancialTransaction.id)).where(FinancialTransaction.status.in_({"RECONCILED", "RESOLVED"}))) or 0
-    investigations_count = db.scalar(select(func.count(Investigation.id)).where(Investigation.status.in_({"PENDING", "RUNNING", "AWAITING_APPROVAL"}))) or 0
+    period_filter = FinancialTransaction.period == period
+    discrepancies_count = db.scalar(select(func.count(FinancialTransaction.id)).where(period_filter, FinancialTransaction.status.in_(discrepancy_statuses))) or 0
+    awaiting_count = db.scalar(select(func.count(FinancialTransaction.id)).where(period_filter, FinancialTransaction.status.in_({"AWAITING_HUMAN_APPROVAL", "AWAITING_MANAGER_APPROVAL"}))) or 0
+    reconciled_count = db.scalar(select(func.count(FinancialTransaction.id)).where(period_filter, FinancialTransaction.status.in_({"RECONCILED", "RESOLVED"}))) or 0
+    investigations_count = db.scalar(
+        select(func.count(Investigation.id))
+        .join(FinancialTransaction, Investigation.transaction_id == FinancialTransaction.id)
+        .where(period_filter, Investigation.status.in_({"PENDING", "RUNNING", "AWAITING_APPROVAL"}))
+    ) or 0
 
     resolution_watch_amount = float(
         db.scalar(
             select(func.coalesce(func.sum(func.abs(FinancialTransaction.difference)), 0))
-            .where(~FinancialTransaction.status.in_({"RECONCILED", "RESOLVED"}))
+            .where(period_filter, ~FinancialTransaction.status.in_({"RECONCILED", "RESOLVED"}))
         ) or 0
     )
-    total_tx_count = db.scalar(select(func.count(FinancialTransaction.id))) or 0
+    total_tx_count = db.scalar(select(func.count(FinancialTransaction.id)).where(period_filter)) or 0
 
     return {
         "discrepancies": discrepancies_count,
@@ -50,7 +55,7 @@ def kpis(_: FinanceUser = None, db: Session = Depends(get_db)):
         "investigations": investigations_count,
         "resolution_watch_amount": resolution_watch_amount,
         "total_transactions": total_tx_count,
-        "current_period": "2026-09",
+        "current_period": period,
     }
 
 

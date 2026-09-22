@@ -34,6 +34,11 @@ def _perform_login(db: Session, email: str, password: str, is_admin: bool) -> To
 
     if not account or not verify_password(password, account.password_hash) or not account.is_active:
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not is_admin and (
+        account.role != Role.REGULAR_USER.value
+        or db.scalar(select(Employee.id).where(Employee.email == norm_email)) is not None
+    ):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
     audit(db, account.id, "SIGNED_IN", f"{'employee' if is_admin else 'user'}:{account.id}")
     db.commit()
@@ -50,7 +55,7 @@ def _perform_login(db: Session, email: str, password: str, is_admin: bool) -> To
 @router.post("/register", response_model=TokenResponse, status_code=201, include_in_schema=False)
 def admin_register(payload: AccountCreate, db: Session = Depends(get_db)):
     email = str(payload.email).lower()
-    if db.scalar(select(Employee).where(Employee.email == email)):
+    if db.scalar(select(Employee.id).where(Employee.email == email)) or db.scalar(select(User.id).where(User.email == email)):
         raise HTTPException(status_code=409, detail="An account with that email already exists")
 
     requested_role = payload.role or Role.ADMIN.value
@@ -90,7 +95,7 @@ def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
 @router.post("/portal-register", response_model=TokenResponse, status_code=201, include_in_schema=False)
 def user_register(payload: AccountCreate, db: Session = Depends(get_db)):
     email = str(payload.email).lower()
-    if db.scalar(select(User).where(User.email == email)):
+    if db.scalar(select(User.id).where(User.email == email)) or db.scalar(select(Employee.id).where(Employee.email == email)):
         raise HTTPException(status_code=409, detail="An account with that email already exists")
 
     requested_role = payload.role or Role.REGULAR_USER.value

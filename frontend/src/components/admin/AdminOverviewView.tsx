@@ -210,6 +210,21 @@ export function AdminOverviewView({
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 rounded-xl border border-border bg-[#071a2b] p-1">
+              {months.map((month) => (
+                <button
+                  key={month}
+                  onClick={() => setSelectedPeriod(month)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                    selectedPeriod === month
+                      ? "bg-primary text-[#071a2b] shadow"
+                      : "text-muted-foreground hover:text-white"
+                  }`}
+                >
+                  {new Date(`${month}-01`).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                </button>
+              ))}
+            </div>
             <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-[#071a2b] px-3 py-1 text-xs font-medium text-primary">
               <Sparkles className="h-3.5 w-3.5" /> Inference Online 
             </div>
@@ -548,20 +563,6 @@ export function AdminOverviewView({
                 </p>
               </div>
 
-              {/* Month tabs */}
-              <div className="flex items-center gap-1 rounded-xl border border-border bg-[#071a2b] p-1">
-                {months.map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setSelectedPeriod(m)}
-                    className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
-                      selectedPeriod === m ? "bg-primary text-[#071a2b]" : "text-muted-foreground hover:text-white"
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div className="overflow-x-auto">
