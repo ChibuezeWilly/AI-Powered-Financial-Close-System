@@ -35,7 +35,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         settings.FRONTEND_ORIGIN,
-        "https://ai-powered-financial-close-system.vercel.app/",
+        "https://ai-powered-financial-close-system.vercel.app",
         "http://localhost:8080",
         "http://127.0.0.1:8080",
     ],
